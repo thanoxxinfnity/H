@@ -45,45 +45,27 @@ module.exports = async (req, res) => {
       return res.end();
     }
 
-    // default: OpenRouter audio-output chat model (preset voices, no cloning)
+    // default: OpenRouter Text-to-Speech API (OpenAI-compatible /audio/speech, 23+ TTS models)
     if (!keys.openrouter) return fail(res, 401, 'OpenRouter key missing (add it in Settings, or unlock with the site password)');
-    const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const body = { model: model || 'fish-audio/s2.1-pro-free:free', input: text, response_format: 'pcm' };
+    if (voice) body.voice = voice;
+    const r = await fetch('https://openrouter.ai/api/v1/audio/speech', {
       method: 'POST',
       headers: { Authorization: `Bearer ${keys.openrouter}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: model || 'openai/gpt-audio-mini',
-        modalities: ['text', 'audio'],
-        audio: { voice: voice || 'alloy', format: 'pcm16' },
-        stream: true,
-        messages: [
-          { role: 'system', content: 'You are a text-to-speech engine. Read the user message aloud exactly as written, with natural expression. Never add, answer, or comment.' },
-          { role: 'user', content: text },
-        ],
-      }),
-    });
-    if (!r.ok) return fail(res, r.status, `OpenRouter: ${(await r.text()).slice(0, 300)}`);
+      body: JSON.stringify(body) });
+    if (!r.ok) {
+      let m = ''; try { const j = await r.json(); m = j.error?.message || JSON.stringify(j); } catch {}
+      return fail(res, r.status, `OpenRouter: ${String(m).slice(0, 300)}`);
+    }
+    const ct = r.headers.get('content-type') || '';
+    const rate = (ct.match(/rate=(\d+)/) || [])[1] || '24000';
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('X-Sample-Rate', rate);
     res.setHeader('Cache-Control', 'no-store, no-transform');
     res.setHeader('X-Accel-Buffering', 'no');
-    const reader = r.body.getReader(), dec = new TextDecoder();
-    let buf = '';
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      let i;
-      while ((i = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
-        if (!line.startsWith('data:')) continue;
-        const data = line.slice(5).trim();
-        if (!data || data === '[DONE]') continue;
-        try {
-          const a = JSON.parse(data).choices?.[0]?.delta?.audio;
-          if (a?.data) res.write(Buffer.from(a.data, 'base64'));
-        } catch { /* ignore keep-alive / partial lines */ }
-      }
-    }
+    const reader = r.body.getReader();
+    for (;;) { const { done, value } = await reader.read(); if (done) break; res.write(Buffer.from(value)); }
     res.end();
   } catch (e) {
     if (!res.headersSent) fail(res, 502, String(e.message || e));

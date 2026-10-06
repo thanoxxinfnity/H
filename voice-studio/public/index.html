@@ -46,8 +46,8 @@ small.h{color:var(--mut);display:block;margin-top:6px}
       <label>Text</label>
       <textarea id="text" placeholder="Type or paste what you want to hear..."></textarea>
       <div class="row">
-        <div><label>Provider</label><select id="provider"><option value="elevenlabs">ElevenLabs (clone + library)</option><option value="fish">Fish Audio (clone + library)</option><option value="openrouter">OpenRouter (preset voices)</option></select></div>
-        <div><label>Voice</label><select id="voice"></select></div>
+        <div><label>Provider</label><select id="provider"><option value="elevenlabs">ElevenLabs (clone + library)</option><option value="fish">Fish Audio (clone + library)</option><option value="openrouter">OpenRouter (23+ TTS models, free Fish)</option></select></div>
+        <div><label>Voice</label><select id="voice"></select><input type="text" id="cvoice" class="hide" placeholder="paste a voice ID (e.g. a Fish voice ID)" style="margin-top:8px"></div>
       </div>
       <div class="row">
         <div><label>Model</label><select id="model"></select></div>
@@ -104,7 +104,7 @@ small.h{color:var(--mut);display:block;margin-top:6px}
 
 <script>
 const $=s=>document.querySelector(s);
-const OR_VOICES=['alloy','ash','ballad','coral','echo','fable','nova','onyx','sage','shimmer','verse'];
+let ORM=[];
 const LS={get:k=>{try{return localStorage.getItem(k)||''}catch{return''}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch{}},del:k=>{try{localStorage.removeItem(k)}catch{}}};
 let cfg={}, voices=[], ac;
 
@@ -135,21 +135,26 @@ const PNAME={elevenlabs:'ElevenLabs',fish:'Fish Audio',openrouter:'OpenRouter'};
 const MODELS={
   elevenlabs:[['eleven_multilingual_v2','Multilingual v2 (best quality)'],['eleven_turbo_v2_5','Turbo v2.5 (fast)'],['eleven_flash_v2_5','Flash v2.5 (fastest)']],
   fish:[['s1','S1 (latest)'],['speech-1.6','Speech 1.6'],['speech-1.5','Speech 1.5']],
-  openrouter:[['openai/gpt-audio-mini','GPT Audio Mini (cheap)'],['openai/gpt-audio','GPT Audio']]};
+  openrouter:[['fish-audio/s2.1-pro-free:free','Fish S2.1 Pro Free (free)'],['deepgram/flux-tts','Deepgram Flux TTS']]};
+function modelList(p){return p==='openrouter'&&ORM.length?ORM.map(m=>[m.id,m.name+(m.free?' (free)':'')]):MODELS[p]}
 const voicesBy={elevenlabs:[],fish:[]};
 function fillModels(){const p=$('#provider').value,sel=$('#model'),cur=LS.get('model_'+p);
-  sel.innerHTML=MODELS[p].map(([v,n])=>`<option value="${v}">${n}</option>`).join('')+'<option value="__custom">Custom model ID...</option>';
-  const isCustom=cur&&!MODELS[p].some(m=>m[0]===cur);sel.value=isCustom?'__custom':(cur||MODELS[p][0][0]);
+  const ML=modelList(p);sel.innerHTML=ML.map(([v,n])=>`<option value="${esc(v)}">${esc(n)}</option>`).join('')+'<option value="__custom">Custom model ID...</option>';
+  const isCustom=cur&&!ML.some(m=>m[0]===cur);sel.value=isCustom?'__custom':(cur||ML[0][0]);
   $('#cmwrap').classList.toggle('hide',sel.value!=='__custom');if(isCustom)$('#cmodel').value=cur}
 function curModel(){const v=$('#model').value;return v==='__custom'?$('#cmodel').value.trim():v}
-$('#model').onchange=()=>{$('#cmwrap').classList.toggle('hide',$('#model').value!=='__custom');LS.set('model_'+$('#provider').value,curModel())};
+$('#model').onchange=()=>{$('#cmwrap').classList.toggle('hide',$('#model').value!=='__custom');LS.set('model_'+$('#provider').value,curModel());if($('#provider').value==='openrouter')fillVoiceSelect()};
 $('#cmodel').oninput=()=>LS.set('model_'+$('#provider').value,curModel());
 
 function fillVoiceSelect(){const p=$('#provider').value,sel=$('#voice'),cur=LS.get('voice_'+p);
-  let opts;if(p==='openrouter')opts=OR_VOICES.map(v=>[v,v]);
+  let opts=[];
+  if(p==='openrouter'){const m=ORM.find(x=>x.id===$('#model').value);opts=[['','Default voice'],...((m&&m.voices)||[]).map(v=>[v,v])]}
   else{opts=voicesBy[p].map(v=>[v.id,v.name+(v.category==='cloned'?' (cloned)':'')]);if(p==='fish')opts.unshift(['','Default voice'])}
-  sel.innerHTML=opts.length?opts.map(([v,n])=>`<option value="${esc(v)}">${esc(n)}</option>`).join(''):'<option value="">No voices (add key / clone one)</option>';
-  if(cur!==''&&opts.some(o=>o[0]===cur))sel.value=cur}
+  opts.push(['__cv','Custom voice ID...']);
+  sel.innerHTML=opts.map(([v,n])=>`<option value="${esc(v)}">${esc(n)}</option>`).join('');
+  if(cur&&opts.some(o=>o[0]===cur))sel.value=cur;else if(cur&&cur!=='__cv'){sel.value='__cv';$('#cvoice').value=cur}
+  $('#cvoice').classList.toggle('hide',sel.value!=='__cv')}
+function curVoice(){const v=$('#voice').value;return v==='__cv'?$('#cvoice').value.trim():v}
 async function fetchVoices(p){try{const r=await fetch('/api/voices?provider='+p,{headers:hdr(false)});if(!r.ok)throw new Error(await errText(r));
     const v=(await r.json()).voices;v.sort((a,b)=>(b.category==='cloned')-(a.category==='cloned')||a.name.localeCompare(b.name));voicesBy[p]=v;return null}
   catch(e){voicesBy[p]=[];return e.message}}
@@ -165,7 +170,8 @@ $('#vlist').onclick=async e=>{const d=e.target.dataset,p=$('#vprov').value;
   if(d.del&&confirm('Delete this cloned voice?')){const r=await fetch(`/api/voices?provider=${p}&id=`+encodeURIComponent(d.del),{method:'DELETE',headers:hdr(false)});if(!r.ok)alert(await errText(r));loadVoices()}};
 $('#vref').onclick=()=>loadVoices();$('#vprov').onchange=()=>loadVoices();
 $('#provider').onchange=async()=>{const p=$('#provider').value;LS.set('provider',p);fillModels();fillVoiceSelect();if(p!=='openrouter'&&!voicesBy[p].length){await fetchVoices(p);fillVoiceSelect()}};
-$('#voice').onchange=()=>LS.set('voice_'+$('#provider').value,$('#voice').value);
+$('#voice').onchange=()=>{$('#cvoice').classList.toggle('hide',$('#voice').value!=='__cv');LS.set('voice_'+$('#provider').value,curVoice())};
+$('#cvoice').oninput=()=>LS.set('voice_'+$('#provider').value,curVoice());
 
 /* ---------- clone ---------- */
 $('#cgo').onclick=async()=>{const name=$('#cname').value.trim(),files=[...$('#cfiles').files],m=$('#cmsg'),p=$('#cprov').value;
@@ -187,21 +193,21 @@ function wav(chunks,rate=24000){let n=0;chunks.forEach(c=>n+=c.length);const b=n
   v.setUint32(24,rate,true);v.setUint32(28,rate*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n,true);
   let o=44;chunks.forEach(c=>{new Uint8Array(b,o,c.length).set(c);o+=c.length});return new Blob([b],{type:'audio/wav'})}
 $('#text').oninput=()=>$('#chars').textContent=$('#text').value.length+' / 5000';
-$('#go').onclick=async()=>{const text=$('#text').value.trim(),m=$('#genmsg'),provider=$('#provider').value,voice=$('#voice').value;
+$('#go').onclick=async()=>{const text=$('#text').value.trim(),m=$('#genmsg'),provider=$('#provider').value,voice=curVoice();
   if(!text)return msg(m,'Type some text first.','err');if(provider==='elevenlabs'&&!voice)return msg(m,'Pick or clone a voice first.','err');const model=curModel();
   msg(m,'');$('#go').disabled=true;$('#bar').classList.remove('hide');$('#result').classList.add('hide');
-  ac=ac||new (window.AudioContext||window.webkitAudioContext)({sampleRate:24000});await ac.resume();
+  ac=ac||new (window.AudioContext||window.webkitAudioContext)();await ac.resume();
   let t=ac.currentTime+0.2,left=new Uint8Array(0),chunks=[];
   try{const r=await fetch('/api/tts',{method:'POST',headers:hdr(),body:JSON.stringify({provider,text,voice,model})});if(!r.ok)throw new Error(await errText(r));
-    const rd=r.body.getReader();
+    const rate=+r.headers.get('X-Sample-Rate')||24000;const rd=r.body.getReader();
     for(;;){const {done,value}=await rd.read();if(done)break;let b=new Uint8Array(left.length+value.length);b.set(left);b.set(value,left.length);
       const n=b.length-(b.length%2);left=b.slice(n);const pcm=b.slice(0,n);if(!n)continue;chunks.push(pcm);
       const i16=new Int16Array(pcm.buffer),f=new Float32Array(i16.length);for(let i=0;i<i16.length;i++)f[i]=i16[i]/32768;
-      const buf=ac.createBuffer(1,f.length,24000);buf.copyToChannel(f,0);const s=ac.createBufferSource();s.buffer=buf;s.connect(ac.destination);
+      const buf=ac.createBuffer(1,f.length,rate);buf.copyToChannel(f,0);const s=ac.createBufferSource();s.buffer=buf;s.connect(ac.destination);
       t=Math.max(t,ac.currentTime);s.start(t);t+=buf.duration}
     if(!chunks.length)throw new Error('No audio came back. Check the key, balance and voice.');
-    const blob=wav(chunks);const url=URL.createObjectURL(blob);$('#player').src=url;$('#dl').href=url;$('#result').classList.remove('hide');
-    const vn=provider==='openrouter'?voice:((voicesBy[provider]||[]).find(v=>v.id===voice)||{}).name||voice||'default';
+    const blob=wav(chunks,rate);const url=URL.createObjectURL(blob);$('#player').src=url;$('#dl').href=url;$('#result').classList.remove('hide');
+    const vn=((voicesBy[provider]||[]).find(v=>v.id===voice)||{}).name||voice||'default';
     await dbPut({text,provider,voice:vn,model,ts:Date.now(),blob})}
   catch(e){msg(m,esc(e.message),'err')}
   $('#bar').classList.add('hide');$('#go').disabled=false};
@@ -220,7 +226,7 @@ $('#hlist').onclick=async e=>{const d=e.target.dataset;if(d.hd){await dbDel(+d.h
 $('#hclear').onclick=async()=>{if(confirm('Delete all history?')){await dbClear();renderHist()}};
 
 /* ---------- boot ---------- */
-(async()=>{$('#provider').value=LS.get('provider')||'elevenlabs';fillModels();fillVoiceSelect();await loadCfg();
+(async()=>{$('#provider').value=LS.get('provider')||'elevenlabs';try{ORM=(await (await fetch('/api/models')).json()).models||[]}catch{}fillModels();fillVoiceSelect();await loadCfg();
   if(cfg.passwordRequired&&!cfg.unlocked&&!LS.get('orkey')&&!LS.get('elkey')&&!LS.get('fikey'))show('set');else show(LS.get('tab')||'gen');
   const p0=$('#provider').value;if(p0!=='openrouter'){await fetchVoices(p0);fillVoiceSelect()}})();
 </script>
