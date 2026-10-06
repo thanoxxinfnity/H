@@ -14,6 +14,7 @@ function resolveKeys(req) {
     unlocked,
     openrouter: req.headers['x-openrouter-key'] || (unlocked ? process.env.OPENROUTER_API_KEY : ''),
     elevenlabs: req.headers['x-elevenlabs-key'] || (unlocked ? process.env.ELEVENLABS_API_KEY : ''),
+    fish: req.headers['x-fish-key'] || (unlocked ? process.env.FISH_API_KEY : ''),
   };
 }
 

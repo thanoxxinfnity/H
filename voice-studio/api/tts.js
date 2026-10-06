@@ -27,6 +27,24 @@ module.exports = async (req, res) => {
       return res.end();
     }
 
+    if (provider === 'fish') {
+      if (!keys.fish) return fail(res, 401, 'Fish Audio key missing (add it in Settings, or unlock with the site password)');
+      const body = { text, format: 'pcm', sample_rate: 24000, latency: 'balanced', chunk_length: 200, normalize: true };
+      if (voice) body.reference_id = voice;
+      const r = await fetch('https://api.fish.audio/v1/tts', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${keys.fish}`, 'Content-Type': 'application/json', model: model || 's1' },
+        body: JSON.stringify(body) });
+      if (!r.ok) return fail(res, r.status, `Fish Audio: ${(await r.text()).slice(0, 300)}`);
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Cache-Control', 'no-store, no-transform');
+      res.setHeader('X-Accel-Buffering', 'no');
+      const reader = r.body.getReader();
+      for (;;) { const { done, value } = await reader.read(); if (done) break; res.write(Buffer.from(value)); }
+      return res.end();
+    }
+
     // default: OpenRouter audio-output chat model (preset voices, no cloning)
     if (!keys.openrouter) return fail(res, 401, 'OpenRouter key missing (add it in Settings, or unlock with the site password)');
     const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {

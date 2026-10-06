@@ -7,5 +7,6 @@ module.exports = (req, res) => {
     unlocked: k.unlocked,
     openrouter: !!k.openrouter,
     elevenlabs: !!k.elevenlabs,
+    fish: !!k.fish,
   }));
 };
