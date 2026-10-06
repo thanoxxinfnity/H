@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Studio</title>
+<style>
+:root{--bg:#0b0b12;--card:#14141f;--card2:#1b1b2a;--line:#272738;--tx:#ecebf5;--mut:#8f8fa8;--ac:#8b5cf6;--ac2:#c084fc;--ok:#34d399;--bad:#f87171}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:16px 16px 80px}
+header{display:flex;align-items:center;gap:12px;padding:14px 0 6px}
+.logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--ac),#ec4899);display:grid;place-items:center;font-weight:800}
+h1{font-size:20px;margin:0}.sub{color:var(--mut);font-size:13px}
+nav{display:flex;gap:6px;margin:14px 0;overflow-x:auto;padding-bottom:4px}
+nav button{background:var(--card);border:1px solid var(--line);color:var(--mut);padding:9px 16px;border-radius:999px;cursor:pointer;font-size:14px;white-space:nowrap}
+nav button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+label{display:block;font-size:12px;color:var(--mut);margin:12px 0 5px;text-transform:uppercase;letter-spacing:.05em}
+textarea,input[type=text],input[type=password],select{width:100%;background:var(--card2);border:1px solid var(--line);color:var(--tx);border-radius:10px;padding:11px 12px;font:inherit}
+textarea{min-height:140px;resize:vertical}
+.row{display:flex;gap:12px;flex-wrap:wrap}.row>*{flex:1;min-width:200px}
+button.pri{background:linear-gradient(135deg,var(--ac),#7c3aed);color:#fff;border:0;border-radius:12px;padding:12px 20px;font-weight:600;cursor:pointer;font-size:15px}
+button.pri:disabled{opacity:.5;cursor:wait}
+button.sm{background:var(--card2);border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:6px 11px;cursor:pointer;font-size:13px}
+button.sm.bad{color:var(--bad)}
+.item{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px;border:1px solid var(--line);border-radius:12px;margin-top:10px;background:var(--card2)}
+.item .t{min-width:0;flex:1}.item .t b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .m{color:var(--mut);font-size:12px}.item .a{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.tag{font-size:11px;padding:2px 8px;border-radius:99px;background:#2a2150;color:var(--ac2);margin-left:6px}
+.msg{padding:10px 12px;border-radius:10px;margin-top:12px;font-size:14px}.msg.err{background:#3a1620;color:#fecaca}.msg.ok{background:#12302a;color:#a7f3d0}
+.hide{display:none}.bar{height:4px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:12px}.bar i{display:block;height:100%;width:30%;background:var(--ac);animation:s 1s infinite linear}
+@keyframes s{0%{margin-left:-30%}100%{margin-left:100%}}
+.chk{display:flex;gap:10px;align-items:flex-start;margin-top:14px;color:var(--mut);font-size:13px}.chk input{margin-top:3px}
+.empty{color:var(--mut);text-align:center;padding:30px 0}audio{width:100%;margin-top:12px}
+small.h{color:var(--mut);display:block;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><div class="logo">V</div><div><h1>Voice Studio</h1><div class="sub">Text to speech, real-time. Clone, save and reuse voices.</div></div></header>
+  <nav id="nav"></nav>
+
+  <!-- GENERATE -->
+  <section id="tab-gen">
+    <div class="card">
+      <label>Text</label>
+      <textarea id="text" placeholder="Type or paste what you want to hear..."></textarea>
+      <div class="row">
+        <div><label>Provider</label><select id="provider"><option value="elevenlabs">ElevenLabs (cloned and library voices)</option><option value="openrouter">OpenRouter (preset voices)</option></select></div>
+        <div><label>Voice</label><select id="voice"></select></div>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
+        <button class="pri" id="go">Generate &amp; play</button><span class="sub" id="chars">0 / 5000</span>
+      </div>
+      <div class="bar hide" id="bar"><i></i></div>
+      <div id="genmsg"></div>
+      <div id="result" class="hide"><audio id="player" controls></audio><div style="margin-top:10px"><a id="dl" class="sm" download="speech.wav"><button class="sm">Download WAV</button></a></div></div>
+    </div>
+  </section>
+
+  <!-- CLONE -->
+  <section id="tab-clone" class="hide">
+    <div class="card">
+      <b>Clone a voice</b><div class="sub">Upload 1-3 clean samples (10-60 s each, no music). Uses ElevenLabs instant cloning.</div>
+      <label>Voice name</label><input type="text" id="cname" placeholder="e.g. Narrator 1">
+      <label>Audio samples (mp3 / wav / m4a)</label><input type="file" id="cfiles" accept="audio/*" multiple>
+      <small class="h">Total upload must stay under about 4 MB.</small>
+      <label class="chk"><input type="checkbox" id="consent"><span>I own this voice or have the speaker's permission to clone and use it, and I will not use it to impersonate or deceive anyone.</span></label>
+      <div style="margin-top:16px"><button class="pri" id="cgo">Clone voice</button></div>
+      <div id="cmsg"></div>
+    </div>
+  </section>
+
+  <!-- VOICES -->
+  <section id="tab-voices" class="hide">
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><b>My voices</b><button class="sm" id="vref">Refresh</button></div><div id="vlist"></div></div>
+  </section>
+
+  <!-- HISTORY -->
+  <section id="tab-hist" class="hide">
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><b>History</b><button class="sm bad" id="hclear">Clear all</button></div>
+      <div class="sub">Saved in this browser (IndexedDB) so it stays after you close the tab.</div><div id="hlist"></div></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="tab-set" class="hide">
+    <div class="card">
+      <b>Settings</b><div class="sub" id="cfgstat"></div>
+      <label>Site password</label><input type="password" id="s_pw" placeholder="Unlocks the keys stored on the server">
+      <label>OpenRouter API key (optional)</label><input type="password" id="s_or" placeholder="sk-or-...">
+      <label>ElevenLabs API key (optional)</label><input type="password" id="s_el" placeholder="sk_...">
+      <small class="h">Keys typed here stay in this browser only and are sent just with your own requests. Leave blank to use the server keys (needs the site password).</small>
+      <div style="margin-top:16px;display:flex;gap:10px"><button class="pri" id="ssave">Save</button><button class="sm bad" id="sclear">Remove saved keys</button></div>
+      <div id="smsg"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const OR_VOICES=['alloy','ash','ballad','coral','echo','fable','nova','onyx','sage','shimmer','verse'];
+const LS={get:k=>{try{return localStorage.getItem(k)||''}catch{return''}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch{}},del:k=>{try{localStorage.removeItem(k)}catch{}}};
+let cfg={}, voices=[], ac;
+
+/* ---------- tabs ---------- */
+const TABS=[['gen','Generate'],['clone','Clone'],['voices','Voices'],['hist','History'],['set','Settings']];
+$('#nav').innerHTML=TABS.map(([k,n])=>`<button data-k="${k}">${n}</button>`).join('');
+function show(k){TABS.forEach(([t])=>{$('#tab-'+t).classList.toggle('hide',t!==k)});document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
+  if(k==='voices')loadVoices();if(k==='hist')renderHist();if(k==='set')fillSettings();LS.set('tab',k)}
+$('#nav').onclick=e=>{if(e.target.dataset.k)show(e.target.dataset.k)};
+
+/* ---------- api helpers ---------- */
+function hdr(json=true){const h={};if(json)h['Content-Type']='application/json';
+  const pw=LS.get('pw'),o=LS.get('orkey'),e=LS.get('elkey');if(pw)h['x-app-password']=pw;if(o)h['x-openrouter-key']=o;if(e)h['x-elevenlabs-key']=e;return h}
+async function errText(r){try{const j=await r.json();return j.error||JSON.stringify(j)}catch{return r.status+' '+r.statusText}}
+function msg(el,t,cls){el.innerHTML=t?`<div class="msg ${cls}">${t}</div>`:''}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function loadCfg(){try{cfg=await (await fetch('/api/config',{headers:hdr(false)})).json()}catch{cfg={}}
+  const bits=[];bits.push(cfg.elevenlabs?'ElevenLabs: ready':'ElevenLabs: no key');bits.push(cfg.openrouter?'OpenRouter: ready':'OpenRouter: no key');
+  if(cfg.passwordRequired)bits.push(cfg.unlocked?'server keys unlocked':'server keys locked');$('#cfgstat').textContent=bits.join(' | ')}
+function fillSettings(){$('#s_pw').value=LS.get('pw')?'********':'';$('#s_or').value=LS.get('orkey')?'********':'';$('#s_el').value=LS.get('elkey')?'********':'';loadCfg()}
+$('#ssave').onclick=async()=>{[['s_pw','pw'],['s_or','orkey'],['s_el','elkey']].forEach(([i,k])=>{const v=$('#'+i).value.trim();if(v&&v!=='********')LS.set(k,v)});
+  await loadCfg();msg($('#smsg'),'Saved.','ok');fillSettings();loadVoices(true)};
+$('#sclear').onclick=async()=>{['pw','orkey','elkey'].forEach(LS.del);await loadCfg();fillSettings();msg($('#smsg'),'Removed.','ok')};
+
+/* ---------- voices ---------- */
+function fillVoiceSelect(){const p=$('#provider').value,sel=$('#voice'),cur=LS.get('voice_'+p);
+  const opts=p==='openrouter'?OR_VOICES.map(v=>[v,v]):voices.map(v=>[v.id,v.name+(v.category==='cloned'?' (cloned)':'')]);
+  sel.innerHTML=opts.length?opts.map(([v,n])=>`<option value="${esc(v)}">${esc(n)}</option>`).join(''):'<option value="">No voices (add ElevenLabs key / clone one)</option>';
+  if(cur&&opts.some(o=>o[0]===cur))sel.value=cur}
+async function loadVoices(silent){const box=$('#vlist');if(!silent)box.innerHTML='<div class="empty">Loading...</div>';
+  try{const r=await fetch('/api/voices',{headers:hdr(false)});if(!r.ok)throw new Error(await errText(r));voices=(await r.json()).voices;
+    voices.sort((a,b)=>(b.category==='cloned')-(a.category==='cloned')||a.name.localeCompare(b.name))}catch(e){voices=[];box.innerHTML=`<div class="msg err">${esc(e.message)}</div>`;fillVoiceSelect();return}
+  fillVoiceSelect();
+  box.innerHTML=voices.length?voices.map(v=>`<div class="item"><div class="t"><b>${esc(v.name)}${v.category==='cloned'?'<span class="tag">cloned</span>':''}</b><span class="m">${esc(v.category||'')}</span></div>
+    <div class="a">${v.preview?`<button class="sm" data-prev="${esc(v.preview)}">Preview</button>`:''}<button class="sm" data-use="${esc(v.id)}">Use</button>${v.category==='cloned'?`<button class="sm bad" data-del="${esc(v.id)}">Delete</button>`:''}</div></div>`).join(''):'<div class="empty">No voices yet.</div>'}
+$('#vlist').onclick=async e=>{const d=e.target.dataset;
+  if(d.prev)new Audio(d.prev).play();
+  if(d.use){$('#provider').value='elevenlabs';fillVoiceSelect();$('#voice').value=d.use;LS.set('voice_elevenlabs',d.use);show('gen')}
+  if(d.del&&confirm('Delete this cloned voice?')){const r=await fetch('/api/voices?id='+encodeURIComponent(d.del),{method:'DELETE',headers:hdr(false)});if(!r.ok)alert(await errText(r));loadVoices()}};
+$('#vref').onclick=()=>loadVoices();
+$('#provider').onchange=()=>{LS.set('provider',$('#provider').value);fillVoiceSelect()};
+$('#voice').onchange=()=>LS.set('voice_'+$('#provider').value,$('#voice').value);
+
+/* ---------- clone ---------- */
+$('#cgo').onclick=async()=>{const name=$('#cname').value.trim(),files=[...$('#cfiles').files],m=$('#cmsg');
+  if(!name)return msg(m,'Give the voice a name.','err');if(!files.length)return msg(m,'Choose at least one audio sample.','err');
+  if(!$('#consent').checked)return msg(m,'Please confirm you have the right to use this voice.','err');
+  const size=files.reduce((a,f)=>a+f.size,0);if(size>4.2e6)return msg(m,'Samples are too big (max ~4 MB total). Trim them.','err');
+  const fd=new FormData();fd.append('name',name);files.forEach(f=>fd.append('files',f,f.name));
+  $('#cgo').disabled=true;msg(m,'Cloning...','ok');
+  try{const r=await fetch('/api/clone',{method:'POST',headers:hdr(false),body:fd});if(!r.ok)throw new Error(await errText(r));const j=await r.json();
+    msg(m,`Voice "${esc(name)}" created.`,'ok');LS.set('voice_elevenlabs',j.voice_id||'');await loadVoices(true);$('#provider').value='elevenlabs';fillVoiceSelect();if(j.voice_id)$('#voice').value=j.voice_id}
+  catch(e){msg(m,esc(e.message),'err')}$('#cgo').disabled=false};
+
+/* ---------- real-time TTS ---------- */
+function wav(chunks,rate=24000){let n=0;chunks.forEach(c=>n+=c.length);const b=new ArrayBuffer(44+n),v=new DataView(b);
+  const w=(o,s)=>[...s].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
+  v.setUint32(24,rate,true);v.setUint32(28,rate*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n,true);
+  let o=44;chunks.forEach(c=>{new Uint8Array(b,o,c.length).set(c);o+=c.length});return new Blob([b],{type:'audio/wav'})}
+$('#text').oninput=()=>$('#chars').textContent=$('#text').value.length+' / 5000';
+$('#go').onclick=async()=>{const text=$('#text').value.trim(),m=$('#genmsg'),provider=$('#provider').value,voice=$('#voice').value;
+  if(!text)return msg(m,'Type some text first.','err');if(provider==='elevenlabs'&&!voice)return msg(m,'Pick or clone a voice first.','err');
+  msg(m,'');$('#go').disabled=true;$('#bar').classList.remove('hide');$('#result').classList.add('hide');
+  ac=ac||new (window.AudioContext||window.webkitAudioContext)({sampleRate:24000});await ac.resume();
+  let t=ac.currentTime+0.2,left=new Uint8Array(0),chunks=[];
+  try{const r=await fetch('/api/tts',{method:'POST',headers:hdr(),body:JSON.stringify({provider,text,voice})});if(!r.ok)throw new Error(await errText(r));
+    const rd=r.body.getReader();
+    for(;;){const {done,value}=await rd.read();if(done)break;let b=new Uint8Array(left.length+value.length);b.set(left);b.set(value,left.length);
+      const n=b.length-(b.length%2);left=b.slice(n);const pcm=b.slice(0,n);if(!n)continue;chunks.push(pcm);
+      const i16=new Int16Array(pcm.buffer),f=new Float32Array(i16.length);for(let i=0;i<i16.length;i++)f[i]=i16[i]/32768;
+      const buf=ac.createBuffer(1,f.length,24000);buf.copyToChannel(f,0);const s=ac.createBufferSource();s.buffer=buf;s.connect(ac.destination);
+      t=Math.max(t,ac.currentTime);s.start(t);t+=buf.duration}
+    if(!chunks.length)throw new Error('No audio came back. Check the key, balance and voice.');
+    const blob=wav(chunks);const url=URL.createObjectURL(blob);$('#player').src=url;$('#dl').href=url;$('#result').classList.remove('hide');
+    const vn=provider==='openrouter'?voice:(voices.find(v=>v.id===voice)||{}).name||voice;
+    await dbPut({text,provider,voice:vn,ts:Date.now(),blob})}
+  catch(e){msg(m,esc(e.message),'err')}
+  $('#bar').classList.add('hide');$('#go').disabled=false};
+
+/* ---------- history (IndexedDB) ---------- */
+const DB=new Promise(res=>{const q=indexedDB.open('voice-studio',1);q.onupgradeneeded=()=>q.result.createObjectStore('h',{keyPath:'id',autoIncrement:true});q.onsuccess=()=>res(q.result);q.onerror=()=>res(null)});
+const tx=async(mode,fn)=>{const d=await DB;if(!d)return;return new Promise(r=>{const t=d.transaction('h',mode),s=t.objectStore('h'),q=fn(s);t.oncomplete=()=>r(q&&q.result)})};
+const dbPut=o=>tx('readwrite',s=>s.add(o));const dbAll=()=>tx('readonly',s=>s.getAll());const dbDel=id=>tx('readwrite',s=>s.delete(id));const dbClear=()=>tx('readwrite',s=>s.clear());
+let urls=[];
+async function renderHist(){urls.forEach(URL.revokeObjectURL);urls=[];const all=((await dbAll())||[]).reverse(),box=$('#hlist');
+  if(!all.length){box.innerHTML='<div class="empty">Nothing yet. Generate some speech and it will show up here.</div>';return}
+  box.innerHTML=all.map(h=>{const u=URL.createObjectURL(h.blob);urls.push(u);return `<div class="item" style="flex-wrap:wrap"><div class="t"><b>${esc(h.text.slice(0,90))}</b><span class="m">${new Date(h.ts).toLocaleString()} | ${esc(h.provider)} | ${esc(h.voice)}</span></div>
+    <div class="a"><a href="${u}" download="speech-${h.id}.wav"><button class="sm">Download</button></a><button class="sm" data-reuse="${h.id}">Reuse text</button><button class="sm bad" data-hd="${h.id}">Delete</button></div><audio controls src="${u}" style="flex-basis:100%"></audio></div>`}).join('')}
+$('#hlist').onclick=async e=>{const d=e.target.dataset;if(d.hd){await dbDel(+d.hd);renderHist()}
+  if(d.reuse){const all=await dbAll();const h=all.find(x=>x.id==d.reuse);if(h){$('#text').value=h.text;$('#text').oninput();show('gen')}}};
+$('#hclear').onclick=async()=>{if(confirm('Delete all history?')){await dbClear();renderHist()}};
+
+/* ---------- boot ---------- */
+(async()=>{$('#provider').value=LS.get('provider')||'elevenlabs';fillVoiceSelect();await loadCfg();
+  if(cfg.passwordRequired&&!cfg.unlocked&&!LS.get('orkey')&&!LS.get('elkey'))show('set');else show(LS.get('tab')||'gen');
+  loadVoices(true)})();
+</script>
+</body>
+</html>
