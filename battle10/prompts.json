@@ -1,0 +1,322 @@
+[
+ {
+  "clip": 1,
+  "act": "I",
+  "start": "0:00",
+  "end": "0:15",
+  "chars": 460,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. Wide crane shot down onto the ruined temple city. KAI climbs the broken stairs, scarf blowing, hand on his sheath. Camera drops to a low-angle in front of him, wind and ash, calm and ominous."
+ },
+ {
+  "clip": 2,
+  "act": "I",
+  "start": "0:15",
+  "end": "0:30",
+  "chars": 431,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. 360-degree orbit around KAI at the top step as he stops and looks up, amber eyes narrowing, scarf lifting. Slow push-in on his face, a single ember drifting past."
+ },
+ {
+  "clip": 3,
+  "act": "I",
+  "start": "0:30",
+  "end": "0:45",
+  "chars": 456,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. Low-angle shot of MORO standing on a collapsed pillar, ring-staff floating beside him, violet eyes glowing under the mask. Robe moves in the wind. He tilts his head with quiet amusement."
+ },
+ {
+  "clip": 4,
+  "act": "I",
+  "start": "0:45",
+  "end": "1:00",
+  "chars": 560,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. Silent stare-down across the broken courtyard. Slow push-in on both faces, embers between them, the huge cracked moon behind. Snap zoom to KAI's thumb pushing the katana guard open, then to MORO's eyes."
+ },
+ {
+  "clip": 5,
+  "act": "I",
+  "start": "1:00",
+  "end": "1:15",
+  "chars": 561,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. KAI dashes in a smear frame, MORO's staff blocks with a ring of violet light, impact flash, stone dust bursts. Fast sword-versus-staff exchange with whip pans, sparks, KAI sliding back across the stones."
+ },
+ {
+  "clip": 6,
+  "act": "I",
+  "start": "1:15",
+  "end": "1:30",
+  "chars": 543,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. MORO spins the ring-staff, violet shockwaves crack the ground in a line. KAI leaps over them in slow motion, rolls, and counters with a rising slash. Camera tracks low along the cracks."
+ },
+ {
+  "clip": 7,
+  "act": "I",
+  "start": "1:30",
+  "end": "1:45",
+  "chars": 551,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. 360-degree orbit around the two locked in a blade-and-staff struggle, faces inches apart, sparks flying. They shove apart; MORO glides back across the air on a violet disc, KAI skids to a stop."
+ },
+ {
+  "clip": 8,
+  "act": "I",
+  "start": "1:45",
+  "end": "2:00",
+  "chars": 445,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. KAI draws and slashes: a silver crescent of light cuts through a stone pillar, the top slides off and crashes. Slow motion on the falling stone, dust rolling toward the camera."
+ },
+ {
+  "clip": 9,
+  "act": "II",
+  "start": "2:00",
+  "end": "2:15",
+  "chars": 460,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. MORO calmly steps aside as the crescent passes him; a small crack opens on his mask. He laughs softly, then raises his hand and five violet orbs begin circling him. Dutch angle, violet glow."
+ },
+ {
+  "clip": 10,
+  "act": "II",
+  "start": "2:15",
+  "end": "2:30",
+  "chars": 526,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. The five orbs launch at KAI like missiles. KAI runs along a broken wall, orbs exploding behind him one by one in fire and dust. Fast tracking shot racing alongside him."
+ },
+ {
+  "clip": 11,
+  "act": "II",
+  "start": "2:30",
+  "end": "2:45",
+  "chars": 523,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. KAI spins and cuts two orbs out of the air, the rest hit him and throw him through a stone archway. Impact frame, debris, camera whips to follow him into the rubble."
+ },
+ {
+  "clip": 12,
+  "act": "II",
+  "start": "2:45",
+  "end": "3:00",
+  "chars": 431,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. KAI lies in rubble, scarf torn, breathing hard. Extreme close-up of his hand tightening on the sword. Heartbeat held pose, embers falling slowly across the frame."
+ },
+ {
+  "clip": 13,
+  "act": "II",
+  "start": "3:00",
+  "end": "3:15",
+  "chars": 476,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. MORO walks toward KAI across the courtyard, the staff trailing violet light on the stones. Low camera behind his feet, then rising to a high-angle shot over the ruins as he towers over the fallen swordsman."
+ },
+ {
+  "clip": 14,
+  "act": "II",
+  "start": "3:15",
+  "end": "3:30",
+  "chars": 548,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. KAI rolls aside as the staff slams the ground, a violet explosion blasts the stones. He springs up and trades fast strikes with MORO, each clash a ring of violet and silver light, whip pans."
+ },
+ {
+  "clip": 15,
+  "act": "II",
+  "start": "3:30",
+  "end": "3:45",
+  "chars": 554,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. 360-degree orbit as they fight on a crumbling bridge over a dark gorge. Planks fall away, KAI jumps to a floating slab, MORO follows on his violet disc, blades and staff flashing in the moonlight."
+ },
+ {
+  "clip": 16,
+  "act": "II",
+  "start": "3:45",
+  "end": "4:00",
+  "chars": 547,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. MORO's staff catches KAI and slams him down; the bridge collapses. KAI falls through the dark gorge, reaching up toward the cracked moon, MORO's silhouette shrinking above him. Slow motion."
+ },
+ {
+  "clip": 17,
+  "act": "III",
+  "start": "4:00",
+  "end": "4:15",
+  "chars": 468,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. Soft watercolor flashback at dawn: a young KAI, scarf too long for him, practices sword swings in a mountain meadow while an old master watches and smiles. Warm golden light, gentle breeze, slow pan."
+ },
+ {
+  "clip": 18,
+  "act": "III",
+  "start": "4:15",
+  "end": "4:30",
+  "chars": 469,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. Flashback: the old master hands the young KAI a plain katana, ties the red scarf around his neck and says something quiet. Close-ups of their hands and smiles. Warm light, soft focus, petals drifting."
+ },
+ {
+  "clip": 19,
+  "act": "III",
+  "start": "4:30",
+  "end": "4:45",
+  "chars": 463,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. Flashback turns cold: the same temple city under a violet sky, the old master falling before a distant masked figure. Young KAI reaching out, held pose, color drains to grey. Sharp cut to black."
+ },
+ {
+  "clip": 20,
+  "act": "III",
+  "start": "4:45",
+  "end": "5:00",
+  "chars": 464,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. Back to the gorge: KAI lands on a ledge, his amber eyes snap open. A faint silver aura rises around the katana, the red scarf lifting as if in a rising wind. Slow push-in, a heartbeat sound feel."
+ },
+ {
+  "clip": 21,
+  "act": "III",
+  "start": "5:00",
+  "end": "5:15",
+  "chars": 461,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. KAI climbs the gorge wall in a fast montage: hand, boot, hand, silver light trailing from his sword. Crane shot up the cliff toward the cracked moon, rock fragments floating upward around him."
+ },
+ {
+  "clip": 22,
+  "act": "III",
+  "start": "5:15",
+  "end": "5:30",
+  "chars": 560,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. KAI bursts over the cliff edge in a silver streak and lands in front of MORO. MORO's staff slows for the first time. Low-angle shot of KAI rising, aura swirling, rubble floating up around him in a ring."
+ },
+ {
+  "clip": 23,
+  "act": "III",
+  "start": "5:30",
+  "end": "5:45",
+  "chars": 540,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. 360-degree orbit around KAI and MORO as KAI vanishes in speed lines and reappears behind MORO. A flurry of slashes in a fast montage of impact frames, silver arcs filling the screen."
+ },
+ {
+  "clip": 24,
+  "act": "III",
+  "start": "5:45",
+  "end": "6:00",
+  "chars": 456,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. MORO blocks the last slash, his staff cracks and violet energy leaks out. He staggers, then steadies, raising both arms. The mask's crack widens. Slow push-in on his glowing violet eyes."
+ },
+ {
+  "clip": 25,
+  "act": "IV",
+  "start": "6:00",
+  "end": "6:15",
+  "chars": 461,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. MORO raises the ring-staff to the sky. It grows into a giant violet ring behind him; the sky turns deep violet and the moon turns blood red. Ash rises in a spiral. Low-angle shot, epic scale."
+ },
+ {
+  "clip": 26,
+  "act": "IV",
+  "start": "6:15",
+  "end": "6:30",
+  "chars": 542,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. Wide shot: the giant ring slowly descends toward the city like a guillotine, KAI tiny in the frame, wind howling, stones lifting. Slow pull-back, violet light washing across the ruins."
+ },
+ {
+  "clip": 27,
+  "act": "IV",
+  "start": "6:30",
+  "end": "6:45",
+  "chars": 456,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. KAI sheathes his sword and closes his eyes, one calm breath. Total silence for a held moment, embers frozen in the air, the red scarf perfectly still. Extreme close-up on his closed eyes."
+ },
+ {
+  "clip": 28,
+  "act": "IV",
+  "start": "6:45",
+  "end": "7:00",
+  "chars": 441,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. KAI opens his eyes and draws in one motion, a huge silver crescent bursts out. 360-degree orbit in slow motion around the sword arc, the sparks and dust hanging in the air."
+ },
+ {
+  "clip": 29,
+  "act": "IV",
+  "start": "7:00",
+  "end": "7:15",
+  "chars": 539,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. The silver crescent meets the violet ring: a colossal clash, white-out, a shockwave tears the clouds apart. Camera shakes violently, whip pan across the ruins as stones fly outward."
+ },
+ {
+  "clip": 30,
+  "act": "IV",
+  "start": "7:15",
+  "end": "7:30",
+  "chars": 555,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. The ring cracks like glass, shards of violet light spray in all directions. MORO shields his face with his arm as the shards pass him. KAI pushes forward through the flying shards, scarf streaming."
+ },
+ {
+  "clip": 31,
+  "act": "IV",
+  "start": "7:30",
+  "end": "7:45",
+  "chars": 541,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. KAI's crescent breaks through, slices the ring-staff in two, and cuts MORO's mask in half. Slow motion as the pieces of the mask fall and spin. Close-up on MORO's unmasked, calm face."
+ },
+ {
+  "clip": 32,
+  "act": "IV",
+  "start": "7:45",
+  "end": "8:00",
+  "chars": 470,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. MORO, unmasked, stands calm among the falling violet shards. A faint peaceful smile. He looks up at the red moon, then back at KAI, nodding once. Slow push-in on his face, violet light fading to gold."
+ },
+ {
+  "clip": 33,
+  "act": "V",
+  "start": "8:00",
+  "end": "8:15",
+  "chars": 558,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. MORO's calm turns to fierce resolve. He throws the broken staff halves like blades, each trailing violet light. KAI deflects both and charges, camera tracking at ground level, dust trails behind them."
+ },
+ {
+  "clip": 34,
+  "act": "V",
+  "start": "8:15",
+  "end": "8:30",
+  "chars": 547,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. Final duel on the broken stairs: KAI and MORO trade fast sword-and-fist strikes, every clash a flash of silver and violet. 360-degree orbit, speed lines, impact frames on the heaviest hits."
+ },
+ {
+  "clip": 35,
+  "act": "V",
+  "start": "8:30",
+  "end": "8:45",
+  "chars": 546,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. MORO grabs KAI's blade with his bare hand, violet energy flaring around it. KAI pulls his scarf off in one move, wraps the blade, and twists free. Slow motion, close-ups of hands and eyes."
+ },
+ {
+  "clip": 36,
+  "act": "V",
+  "start": "8:45",
+  "end": "9:00",
+  "chars": 474,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. KAI leaps high in front of the red moon, silhouetted, katana raised with both hands, silver aura blazing. Slow motion at the top of the jump, scarf unwinding behind him, one ember glowing at the blade tip."
+ },
+ {
+  "clip": 37,
+  "act": "V",
+  "start": "9:00",
+  "end": "9:15",
+  "chars": 560,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. KAI comes down in a single huge slash. MORO opens his arms and takes the cut. A silver flash, white-out, then slow-motion dust. Camera pulls out wide as the shockwave rolls across the whole ruined city."
+ },
+ {
+  "clip": 38,
+  "act": "V",
+  "start": "9:15",
+  "end": "9:30",
+  "chars": 488,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. MORO: tall, white half-mask, long violet robe, glowing violet eyes, floating ring-staff. MORO kneels, unharmed in body but his violet robe turning to petals that drift upward. He smiles gently, whispers silently, and slowly fades into drifting violet petals. Close-up on his face, then on the petals rising."
+ },
+ {
+  "clip": 39,
+  "act": "V",
+  "start": "9:30",
+  "end": "9:45",
+  "chars": 460,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. KAI sinks to one knee, exhausted, katana planted in the stones. The red moon fades to a pale white. Slow push-in on his tired face, the first thin line of dawn light touching his silver hair."
+ },
+ {
+  "clip": 40,
+  "act": "V",
+  "start": "9:45",
+  "end": "10:00",
+  "chars": 475,
+  "prompt": "Hand-drawn 2D anime, ink linework, cel shading, painted background, film grain, dynamic anime camera, no text. Ruined mountain temple city at dusk, huge cracked moon, drifting ash. KAI: silver messy hair, amber eyes, long red scarf, black gold-trim coat, plain katana. Dawn breaks over the ruins in warm orange light. KAI walks down the broken stairs, scarf fluttering, the cracked moon fading. Slow pull-out to a wide shot of the temple city small behind him. Fade to white."
+ }
+]
