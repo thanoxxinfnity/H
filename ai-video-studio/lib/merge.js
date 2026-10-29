@@ -35,19 +35,24 @@ async function getFFmpeg(onLog) {
 export async function mergeVideos(blobs, { onProgress, onLog } = {}) {
   if (!blobs.length) throw new Error("Nothing to merge");
   if (blobs.length === 1) return blobs[0];
+  let step = "loading ffmpeg";
+  try { return await run(); } catch (e) { throw new Error(`${step}: ${e?.message || (typeof e === "string" ? e : JSON.stringify(e)) || e}`); }
+  async function run() {
   const { ff, util } = await getFFmpeg(onLog);
   const progress = ({ progress: p }) => onProgress?.(Math.max(0, Math.min(1, p)));
   ff.on("progress", progress);
   const names = [];
   try {
     for (let i = 0; i < blobs.length; i++) {
-      const n = `in${i}.mp4`; names.push(n);
+      const n = `in${i}.mp4`; names.push(n); step = `writing ${n}`;
       await ff.writeFile(n, await util.fetchFile(blobs[i]));
     }
+    step = "concat copy";
     await ff.writeFile("list.txt", names.map((n) => `file '${n}'`).join("\n"));
     let code = await ff.exec(["-f", "concat", "-safe", "0", "-i", "list.txt", "-c", "copy", "-movflags", "+faststart", "out.mp4"]);
     let ok = code === 0;
     if (ok) { const d = await ff.readFile("out.mp4"); ok = d.length > 1000; }
+    step = "re-encode";
     if (!ok) { // clips differ in codec/size: re-encode to be safe
       code = await ff.exec(["-f", "concat", "-safe", "0", "-i", "list.txt", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", "out.mp4"]);
       if (code !== 0) throw new Error("ffmpeg could not merge these clips");
@@ -57,5 +62,6 @@ export async function mergeVideos(blobs, { onProgress, onLog } = {}) {
   } finally {
     ff.off("progress", progress);
     for (const n of [...names, "list.txt", "out.mp4"]) { try { await ff.deleteFile(n); } catch {} }
+  }
   }
 }
