@@ -40,5 +40,6 @@ async function tx(mode, fn) {
 }
 export const addVideo = (rec) => tx("readwrite", (s) => s.put(rec));
 export const listVideos = async () => ((await tx("readonly", (s) => s.getAll())) || []).sort((a, b) => b.createdAt - a.createdAt);
+export const getVideo = (id) => tx("readonly", (s) => s.get(id));
 export const deleteVideo = (id) => tx("readwrite", (s) => s.delete(id));
 export const clearVideos = () => tx("readwrite", (s) => s.clear());

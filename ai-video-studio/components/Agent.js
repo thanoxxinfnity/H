@@ -12,7 +12,10 @@ import { extractLastFrame } from "@/lib/frames";
 import { directorChat, expandStory, rewriteScene } from "@/lib/agent";
 import { PROVIDERS, activeProvider, llmReady } from "@/lib/llm";
 import { mergeVideos } from "@/lib/merge";
-import { addVideo } from "@/lib/storage";
+import { addVideo, getVideo } from "@/lib/storage";
+import { dropPending, pendingJobs, resumeJob } from "@/lib/jobs";
+
+const SAVE_KEY = "avs.agent.v1";
 
 const CONCURRENCY = 2;
 
@@ -36,6 +39,9 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
   const [chain, setChain] = useState(true);
   const [thinkMsg, setThinkMsg] = useState("");
   const stopRef = useRef(false);
+  const genIds = useRef({}); // sceneId -> Revana generation id
+  const [restored, setRestored] = useState(false);
+  const autoResume = useRef(false);
 
   const model = models.find((m) => m.id === cfg.model);
   const scenes = story?.scenes || [];
@@ -114,6 +120,45 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
     setConfirm(true);
   }
 
+  const runningRef = useRef(false);
+  function save(extra = {}) {
+    if (extra.running !== undefined) runningRef.current = extra.running;
+    try { if (story) localStorage.setItem(SAVE_KEY, JSON.stringify({ story, msgs: msgs.slice(-40), gen: genIds.current, running: runningRef.current, chain })); } catch {}
+  }
+  useEffect(() => { save(); }, [story, msgs, chain]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Bring back the story and collect scenes that finished while the tab was closed.
+  useEffect(() => {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch {}
+    if (!saved?.story?.scenes?.length) return setRestored(true);
+    setStory(saved.story); if (saved.msgs?.length) setMsgs(saved.msgs); setChain(saved.chain !== false);
+    genIds.current = saved.gen || {};
+    runningRef.current = !!saved.running;
+    (async () => {
+      const pend = Object.fromEntries(pendingJobs().map((j) => [j.id, j]));
+      await Promise.all(saved.story.scenes.map(async (sc) => {
+        const gid = saved.gen?.[sc.id]; if (!gid) return;
+        try {
+          const rec = await getVideo(gid);
+          if (rec?.blob) { blobs.current[sc.id] = rec.blob; return patchSt(sc.id, { status: "done", blob: rec.blob }); }
+          if (pend[gid] && settings.revanaKey) {
+            patchSt(sc.id, { status: "running", msg: "resuming" });
+            const r = await resumeJob({ key: settings.revanaKey, id: gid, onStatus: (g) => patchSt(sc.id, { msg: g.status }) });
+            if (r?.blob) { blobs.current[sc.id] = r.blob; patchSt(sc.id, { status: "done", blob: r.blob }); onSaved?.(); }
+          }
+        } catch (e) { patchSt(sc.id, { status: "error", msg: e.message }); }
+      }));
+      if (saved.running) autoResume.current = true;
+      setRestored(true);
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!restored || !autoResume.current || !settings.revanaKey) return;
+    autoResume.current = false;
+    if (story && todo.length && !running) generateAll();
+  }, [restored]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function lastFrameUrl(id) {
     if (frames.current[id]) return frames.current[id];
     const blob = blobs.current[id];
@@ -139,10 +184,12 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
       else if (picked) Object.assign(input, mediaInput(model, [...others, ...refImgs], { startOverride: picked.url }));
       else if (prevFrame) Object.assign(input, mediaInput(model, others, { startOverride: prevFrame }));
       else Object.assign(input, mediaInput(model, refs, { mode: "refs" }));
-      const { blob, gen } = await runVideo({ key: settings.revanaKey, model: cfg.model, input, onStatus: (g) => patchSt(s.id, { msg: g.status }) });
+      const { blob, gen } = await runVideo({ key: settings.revanaKey, model: cfg.model, input, onStatus: (g) => patchSt(s.id, { msg: g.status }), onCreated: (id) => { genIds.current[s.id] = id; save(); },
+        meta: { kind: "scene", prompt, model: cfg.model, duration: s.duration, resolution: cfg.resolution, ratio: cfg.ratio, cost: estimate(model, cfg.resolution, s.duration).usd, free: estimate(model, cfg.resolution, s.duration).free } });
       blobs.current[s.id] = blob;
       const e = estimate(model, cfg.resolution, s.duration);
       await addVideo({ id: gen.id, kind: "scene", prompt, model: cfg.model, duration: s.duration, resolution: cfg.resolution, ratio: cfg.ratio, cost: gen.cost_usd ?? e.usd, free: e.free, createdAt: Date.now(), blob });
+      dropPending(gen.id);
       patchSt(s.id, { status: "done", blob });
       onSaved?.();
     } catch (e) {
@@ -152,11 +199,11 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
   }
 
   async function generateAll() {
-    setConfirm(false); setRunning(true); setFinal(null); stopRef.current = false;
+    setConfirm(false); setRunning(true); setFinal(null); stopRef.current = false; save({ running: true });
     const queue = [...todo];
     const worker = async () => { while (queue.length && !stopRef.current) await genScene(queue.shift()); };
     await Promise.all(Array.from({ length: chain && canChain ? 1 : Math.min(CONCURRENCY, queue.length) }, worker));
-    setRunning(false);
+    setRunning(false); save({ running: false });
   }
 
   async function merge() {

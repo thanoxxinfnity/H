@@ -6,6 +6,7 @@ import ImagePicker from "./ImagePicker";
 import ConfirmModal from "./ConfirmModal";
 import VideoCard from "./VideoCard";
 import { buildPrompt, STYLES, CAMERAS } from "@/lib/prompt";
+import { dropPending } from "@/lib/jobs";
 import { estimate, fmtUsd, runVideo, newId, modelCaps, mediaSupport, mediaInput } from "@/lib/revana";
 import { addVideo } from "@/lib/storage";
 
@@ -45,10 +46,11 @@ export default function Create({ settings, models, cfg, setCfg, prompt, setPromp
     try {
       const input = { prompt: full, duration: c.duration, resolution: c.resolution, aspect_ratio: c.ratio };
       Object.assign(input, mediaInput(model, c.used, { mode: c.mode }));
-      const { blob, gen } = await runVideo({ key: settings.revanaKey, model: c.model, input, onStatus: (g) => patch(uid, { status: g.status }) });
+      const { blob, gen } = await runVideo({ key: settings.revanaKey, model: c.model, input, onStatus: (g) => patch(uid, { status: g.status }),
+        meta: { kind: "video", prompt: full, model: c.model, duration: c.duration, resolution: c.resolution, ratio: c.ratio, cost: est.usd, free: est.free } });
       const rec = { id: gen.id, kind: "video", prompt: full, model: c.model, duration: c.duration, resolution: c.resolution, ratio: c.ratio,
         cost: gen.cost_usd ?? est.usd, free: est.free, createdAt: Date.now(), blob };
-      await addVideo(rec);
+      await addVideo(rec); dropPending(gen.id);
       patch(uid, { status: "done", rec });
       onSaved?.();
     } catch (e) {

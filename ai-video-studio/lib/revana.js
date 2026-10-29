@@ -1,3 +1,4 @@
+import { markActive, savePending } from "@/lib/jobs";
 export const REVANA_BASE = "https://api.revana.si/v1";
 
 export async function listVideoModels() {
@@ -72,9 +73,11 @@ export async function downloadContent({ key, id }) {
 export const newId = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
 
 /** Create + wait + download. Returns { blob, gen }. */
-export async function runVideo({ key, model, input, onStatus, signal }) {
+export async function runVideo({ key, model, input, onStatus, signal, meta, onCreated }) {
   const idem = `avs-${newId()}`;
   const g0 = await createGeneration({ key, model, input, idem });
+  if (meta) { markActive(g0.id); savePending(g0.id, meta); }
+  onCreated?.(g0.id);
   onStatus?.(g0);
   const g = await waitForGeneration({ key, id: g0.id, onUpdate: onStatus, signal });
   const blob = await downloadContent({ key, id: g.id });

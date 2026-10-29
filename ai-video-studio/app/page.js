@@ -10,6 +10,7 @@ import { loadSettings, saveSettings, DEFAULT_SETTINGS } from "@/lib/storage";
 import { listVideoModels, getBalance } from "@/lib/revana";
 import { fetchNimModels, pickFallback } from "@/lib/nimModels";
 import { fetchGeminiModels, pickGeminiFallback } from "@/lib/gemini";
+import { pendingJobs, resumeJob } from "@/lib/jobs";
 import { useLiveModels } from "@/lib/useLiveModels";
 
 const TABS = [["create", "Create", Clapperboard], ["agent", "Agent", Wand2], ["history", "History", HistoryIcon]];
@@ -39,8 +40,8 @@ export default function Page() {
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const patchSettings = useCallback((p) => { const n = { ...settingsRef.current, ...p }; settingsRef.current = n; setSettings(n); saveSettings(n); }, []);
-  const nim = useLiveModels({ id: "nim", enabled: ready, fetcher: () => fetchNimModels(settings.nimKey), fallback: pickFallback, current: settings.nimModel, setCurrent: (v) => patchSettings({ nimModel: v }), onNotice: (m) => setNimNotice(`NVIDIA: ${m}`) });
-  const gemini = useLiveModels({ id: "gemini", enabled: ready && !!settings.geminiKey, fetcher: () => fetchGeminiModels(settings.geminiKey), fallback: pickGeminiFallback, current: settings.geminiModel, setCurrent: (v) => patchSettings({ geminiModel: v }), onNotice: (m) => setNimNotice(`Gemini: ${m}`) });
+  const nim = useLiveModels({ id: "nim", enabled: ready, fetcher: () => fetchNimModels(settings.nimKey), fallback: pickFallback, current: settings.nimModel, setCurrent: (v) => patchSettings({ nimModel: v }), onNotice: (m) => setNimNotice(`Model list updated - NVIDIA: ${m}`) });
+  const gemini = useLiveModels({ id: "gemini", enabled: ready && !!settings.geminiKey, fetcher: () => fetchGeminiModels(settings.geminiKey), fallback: pickGeminiFallback, current: settings.geminiModel, setCurrent: (v) => patchSettings({ geminiModel: v }), onNotice: (m) => setNimNotice(`Model list updated - Gemini: ${m}`) });
   const live = { nim, gemini };
 
   const refreshBal = useCallback(() => {
@@ -48,6 +49,14 @@ export default function Page() {
     getBalance(settings.revanaKey).then((b) => setBal(b.available_usd ?? b.balance_usd ?? null)).catch(() => setBal(null));
   }, [settings.revanaKey]);
   useEffect(() => { if (ready) refreshBal(); }, [ready, refreshBal]);
+
+  useEffect(() => {
+    if (!ready || !settings.revanaKey) return;
+    const jobs = pendingJobs().filter((j) => j.kind !== "scene");
+    if (!jobs.length) return;
+    setNimNotice(`Picking up ${jobs.length} video(s) that were generating while the site was closed...`);
+    jobs.forEach((j) => resumeJob({ key: settings.revanaKey, id: j.id }).then((r) => { if (r) { onSaved(); setNimNotice("Finished video saved to History."); } }).catch(() => {}));
+  }, [ready, settings.revanaKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const needKey = (msg) => { setNotice(msg || "Add your Revana API key in Settings to generate videos."); setShowSettings(true); };
   const onSaved = () => { setHKey((k) => k + 1); refreshBal(); };
@@ -78,7 +87,7 @@ export default function Page() {
           Add your <b>Revana API key</b> in Settings to start generating. Free model <code>minimax-h3-free</code> costs $0.
         </button>
       )}
-      {nimNotice && <p className="mb-3 flex items-start gap-2 rounded-xl border border-lime/40 bg-lime/10 px-3 py-2 text-xs text-lime"><span className="flex-1 break-words">Model list updated - {nimNotice}</span><button onClick={() => setNimNotice("")} aria-label="Dismiss">x</button></p>}
+      {nimNotice && <p className="mb-3 flex items-start gap-2 rounded-xl border border-lime/40 bg-lime/10 px-3 py-2 text-xs text-lime"><span className="flex-1 break-words">{nimNotice}</span><button onClick={() => setNimNotice("")} aria-label="Dismiss">x</button></p>}
       {modelErr && <p className="mb-3 text-xs text-pink">Could not load models: {modelErr}</p>}
 
       {ready && tab === "create" && <Create settings={settings} models={models} cfg={cfg} setCfg={setCfg} prompt={prompt} setPrompt={setPrompt} onNeedKey={needKey} onSaved={onSaved} />}
