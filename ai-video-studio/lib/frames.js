@@ -23,7 +23,11 @@ export async function makeThumb(blob, size = 120) {
 }
 
 /** Returns a JPEG Blob of (almost) the last frame of a video Blob. */
-export function extractLastFrame(videoBlob) {
+export async function extractLastFrame(videoBlob) {
+  try { return await videoLastFrame(videoBlob); }
+  catch { const { lastFrameFF } = await import("@/lib/merge"); return lastFrameFF(videoBlob); }
+}
+function videoLastFrame(videoBlob) {
   return new Promise((resolve, reject) => {
     const v = document.createElement("video");
     const url = URL.createObjectURL(videoBlob);

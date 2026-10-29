@@ -65,3 +65,15 @@ export async function mergeVideos(blobs, { onProgress, onLog } = {}) {
   }
   }
 }
+
+/** Last frame of a clip via ffmpeg.wasm (fallback when the browser cannot decode the clip itself). */
+export async function lastFrameFF(blob) {
+  const { ff, util } = await getFFmpeg();
+  try {
+    await ff.writeFile("lf.mp4", await util.fetchFile(blob));
+    const code = await ff.exec(["-sseof", "-0.15", "-i", "lf.mp4", "-update", "1", "-q:v", "2", "-frames:v", "1", "lf.jpg"]);
+    if (code !== 0) throw new Error("ffmpeg could not grab the last frame");
+    const d = await ff.readFile("lf.jpg");
+    return new Blob([d.buffer], { type: "image/jpeg" });
+  } finally { for (const n of ["lf.mp4", "lf.jpg"]) { try { await ff.deleteFile(n); } catch {} } }
+}

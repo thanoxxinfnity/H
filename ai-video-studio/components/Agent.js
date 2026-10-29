@@ -9,7 +9,7 @@ import { STYLES, CAMERAS, buildPrompt } from "@/lib/prompt";
 import { estimate, fmtUsd, runVideo, newId, modelCaps, uploadBlob, mediaSupport, mediaInput } from "@/lib/revana";
 import NimSelect from "./NimSelect";
 import { extractLastFrame } from "@/lib/frames";
-import { directorChat, rewriteScene } from "@/lib/agent";
+import { directorChat, expandStory, rewriteScene } from "@/lib/agent";
 import { PROVIDERS, activeProvider, llmReady } from "@/lib/llm";
 import { mergeVideos } from "@/lib/merge";
 import { addVideo } from "@/lib/storage";
@@ -33,7 +33,9 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
   const blobs = useRef({});
   const frames = useRef({}); // sceneId -> url of its last frame (for chaining)
   const [refs, setRefs] = useState([]);
-  const [chain, setChain] = useState(false);
+  const [chain, setChain] = useState(true);
+  const [thinkMsg, setThinkMsg] = useState("");
+  const stopRef = useRef(false);
 
   const model = models.find((m) => m.id === cfg.model);
   const scenes = story?.scenes || [];
@@ -53,6 +55,12 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
   const free = estimate(model, cfg.resolution, 5).free;
   const allDone = scenes.length > 0 && scenes.every((s) => st[s.id]?.status === "done");
 
+  useEffect(() => {
+    if (!running) return;
+    const h = (e) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [running]);
   const prov = activeProvider(settings);
   const providerKey = `${settings.provider === "gemini" ? "gemini" : "nim"}`;
   useEffect(() => { chatEnd.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, [msgs, thinking]);
@@ -67,13 +75,21 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
     try {
       const out = await directorChat({ settings, history, story, styleText: STYLES[cfg.style].text });
       setMsgs([...history, { role: "assistant", content: out.reply }]);
+      let next = story;
       if (out.story) {
         const old = story?.scenes || [];
-        setStory({ ...out.story, scenes: out.story.scenes.map((x, i) => (old[i] && old[i].prompt.trim() === x.prompt.trim() && old[i].duration === x.duration ? old[i] : { ...x, start: "auto" })) });
-        setFinal(null);
+        next = { ...out.story, scenes: out.story.scenes.map((x, i) => (old[i] && old[i].prompt.trim() === x.prompt.trim() && old[i].duration === x.duration ? old[i] : { ...x, start: "auto" })) };
+        setStory(next); setFinal(null);
+      }
+      if (next && out.totalSeconds && next.scenes.reduce((a, x) => a + x.duration, 0) < out.totalSeconds - 4) {
+        setThinkMsg("Poori movie ke scenes likh raha hoon…");
+        const full = await expandStory({ settings, story: next, totalSeconds: out.totalSeconds, styleText: STYLES[cfg.style].text, onProgress: (d, t) => setThinkMsg(`Movie ke scenes likh raha hoon… ${Math.round(d)}s / ${Math.round(t)}s`) });
+        full.scenes = full.scenes.map((x) => ({ start: "auto", ...x }));
+        setStory(full); setFinal(null); next = full;
+        setMsgs((m) => [...m, { role: "assistant", content: `Poori movie ka storyboard ready: ${full.scenes.length} scenes, ${full.scenes.reduce((a, x) => a + x.duration, 0)}s. Har scene pichle scene ke last frame se continue hoga. "bana do" bolo to generation shuru kar dunga (background me chalta rahega).` }]);
       }
       if (out.generate) setWantGen(true);
-    } catch (e) { setErr(e.message); setMsgs(history); } finally { setThinking(false); }
+    } catch (e) { setErr(e.message); setMsgs(history); } finally { setThinking(false); setThinkMsg(""); }
   }
   useEffect(() => {
     if (!wantGen || thinking) return;
@@ -98,13 +114,25 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
     setConfirm(true);
   }
 
-  async function genScene(s) {
-    patchSt(s.id, { status: "running", msg: "" });
+  async function lastFrameUrl(id) {
+    if (frames.current[id]) return frames.current[id];
+    const blob = blobs.current[id];
+    if (!blob) return null;
+    let lastErr;
+    for (let t = 0; t < 2; t++) {
+      try { return (frames.current[id] = await uploadBlob({ key: settings.revanaKey, blob: await extractLastFrame(blob), filename: "lastframe.jpg" })); }
+      catch (e) { lastErr = e; }
+    }
+    throw lastErr;
+  }
+
+  async function genScene(s, attempt = 0) {
+    patchSt(s.id, { status: "running", msg: attempt ? `retry ${attempt}` : "" });
     try {
       const prompt = buildPrompt(s.prompt, cfg.style, cfg.camera);
       const input = { prompt, duration: s.duration, resolution: cfg.resolution, aspect_ratio: cfg.ratio };
       const idx = scenes.findIndex((x) => x.id === s.id);
-      const prevFrame = chain && canChain && idx > 0 ? frames.current[scenes[idx - 1].id] : null;
+      const prevFrame = chain && canChain && idx > 0 && (!s.start || s.start === "auto") ? await lastFrameUrl(scenes[idx - 1].id).catch(() => null) : null;
       const picked = s.start && s.start !== "auto" && s.start !== "none" ? refImgs.find((r) => r.id === s.start) : null;
       const others = refs.filter((r) => r.kind && r.kind !== "image");
       if (s.start === "none") Object.assign(input, mediaInput(model, others));
@@ -113,18 +141,20 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
       else Object.assign(input, mediaInput(model, refs, { mode: "refs" }));
       const { blob, gen } = await runVideo({ key: settings.revanaKey, model: cfg.model, input, onStatus: (g) => patchSt(s.id, { msg: g.status }) });
       blobs.current[s.id] = blob;
-      if (chain && canChain) { try { frames.current[s.id] = await uploadBlob({ key: settings.revanaKey, blob: await extractLastFrame(blob), filename: "lastframe.jpg" }); } catch {} }
       const e = estimate(model, cfg.resolution, s.duration);
       await addVideo({ id: gen.id, kind: "scene", prompt, model: cfg.model, duration: s.duration, resolution: cfg.resolution, ratio: cfg.ratio, cost: gen.cost_usd ?? e.usd, free: e.free, createdAt: Date.now(), blob });
       patchSt(s.id, { status: "done", blob });
       onSaved?.();
-    } catch (e) { patchSt(s.id, { status: "error", msg: e.message }); }
+    } catch (e) {
+      if (attempt < 2 && !stopRef.current) { await new Promise((r) => setTimeout(r, 3000)); return genScene(s, attempt + 1); }
+      patchSt(s.id, { status: "error", msg: e.message });
+    }
   }
 
   async function generateAll() {
-    setConfirm(false); setRunning(true); setFinal(null);
+    setConfirm(false); setRunning(true); setFinal(null); stopRef.current = false;
     const queue = [...todo];
-    const worker = async () => { while (queue.length) await genScene(queue.shift()); };
+    const worker = async () => { while (queue.length && !stopRef.current) await genScene(queue.shift()); };
     await Promise.all(Array.from({ length: chain && canChain ? 1 : Math.min(CONCURRENCY, queue.length) }, worker));
     setRunning(false);
   }
@@ -151,7 +181,7 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
               <p className={`max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-[13px] leading-snug ${m.role === "user" ? "bg-neon/10 text-white" : "bg-panel2 text-white/85"}`}>{m.content}</p>
             </div>
           ))}
-          {thinking && <p className="flex items-center gap-2 text-xs text-white/50"><Loader2 className="animate-spin" size={13} /> Director soch raha hai…</p>}
+          {thinking && <p className="flex items-center gap-2 text-xs text-white/50"><Loader2 className="animate-spin" size={13} /> {thinkMsg || "Director soch raha hai…"}</p>}
           <div ref={chatEnd} />
         </div>
         {story && !thinking && (
@@ -249,6 +279,7 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
                 {running ? "Generating scenes…" : todo.length === scenes.length ? `Generate all ${scenes.length} scenes` : `Generate remaining ${todo.length}`}
                 {!running && <span className="opacity-70">· {free ? "FREE" : fmtUsd(total.usd)}</span>}
               </button>
+              {running && <button className="btn-danger w-full py-2.5" onClick={() => { stopRef.current = true; }}>Stop after current scene</button>}
               <button className="btn-ghost w-full py-3" onClick={merge} disabled={!allDone || merging || running}>
                 {merging ? <Loader2 className="animate-spin" size={18} /> : <Film size={18} />}
                 {merging ? `Merging… ${Math.round(mergeP * 100)}%` : "Merge into one final video"}

@@ -16,6 +16,7 @@ const TABS = [["create", "Create", Clapperboard], ["agent", "Agent", Wand2], ["h
 
 export default function Page() {
   const [tab, setTab] = useState("create");
+  const [visited, setVisited] = useState({});
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [ready, setReady] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -68,7 +69,7 @@ export default function Page() {
 
       <nav className="mb-4 hidden gap-2 sm:flex">
         {TABS.map(([k, l, I]) => (
-          <button key={k} onClick={() => setTab(k)} className={`btn ${tab === k ? "bg-neon/15 text-neon shadow-neon ring-1 ring-neon" : "border border-line bg-panel2 text-white/60 hover:text-white"}`}><I size={16} />{l}</button>
+          <button key={k} onClick={() => { setTab(k); setVisited((v) => ({ ...v, [k]: true })); }} className={`btn ${tab === k ? "bg-neon/15 text-neon shadow-neon ring-1 ring-neon" : "border border-line bg-panel2 text-white/60 hover:text-white"}`}><I size={16} />{l}</button>
         ))}
       </nav>
 
@@ -81,12 +82,12 @@ export default function Page() {
       {modelErr && <p className="mb-3 text-xs text-pink">Could not load models: {modelErr}</p>}
 
       {ready && tab === "create" && <Create settings={settings} models={models} cfg={cfg} setCfg={setCfg} prompt={prompt} setPrompt={setPrompt} onNeedKey={needKey} onSaved={onSaved} />}
-      {ready && tab === "agent" && <Agent live={live} patchSettings={patchSettings} settings={settings} models={models} cfg={cfg} setCfg={setCfg} onNeedKey={needKey} onSaved={onSaved} />}
+      {ready && (tab === "agent" || visited.agent) && <div className={tab === "agent" ? "" : "hidden"}><Agent live={live} patchSettings={patchSettings} settings={settings} models={models} cfg={cfg} setCfg={setCfg} onNeedKey={needKey} onSaved={onSaved} /></div>}
       {ready && tab === "history" && <History refreshKey={hKey} onReuse={reuse} />}
 
       <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-line bg-ink/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
         {TABS.map(([k, l, I]) => (
-          <button key={k} onClick={() => setTab(k)} className={`flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold ${tab === k ? "text-neon" : "text-white/50"}`}><I size={20} />{l}</button>
+          <button key={k} onClick={() => { setTab(k); setVisited((v) => ({ ...v, [k]: true })); }} className={`flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold ${tab === k ? "text-neon" : "text-white/50"}`}><I size={20} />{l}</button>
         ))}
       </nav>
 
