@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+html, body { background: #07070d; color: #e8e8ff; }
+body {
+  min-height: 100dvh;
+  background-image:
+    radial-gradient(900px 500px at 10% -10%, rgba(255,43,214,.16), transparent 60%),
+    radial-gradient(800px 500px at 100% 0%, rgba(0,240,255,.14), transparent 55%);
+  background-attachment: fixed;
+}
+.card { @apply rounded-2xl border border-line bg-panel/90 p-4 backdrop-blur; }
+.lbl { @apply mb-1.5 mt-3 block text-[11px] font-semibold uppercase tracking-widest text-neon/70; }
+.inp { @apply w-full rounded-xl border border-line bg-panel2 px-3 py-2.5 text-sm text-white outline-none transition focus:border-neon focus:shadow-neon placeholder:text-white/30; }
+.btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40; }
+.btn-neon { @apply btn bg-gradient-to-r from-neon to-pink text-black shadow-neon; }
+.btn-ghost { @apply btn border border-line bg-panel2 text-white hover:border-neon; }
+.btn-danger { @apply btn border border-pink/50 bg-pink/10 text-pink hover:bg-pink/20; }
+.chip { @apply rounded-full border px-3 py-1.5 text-xs font-medium transition; }
+input[type=range] { accent-color: #00f0ff; }
