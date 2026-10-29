@@ -18,7 +18,7 @@ function loadScript(src, globalName) {
 let ffmpegP;
 async function getFFmpeg(onLog) {
   if (!ffmpegP) ffmpegP = (async () => {
-    const [{ FFmpeg }, util] = await Promise.all([loadScript(`${FF_BASE}/ffmpeg.js`, "FFmpegWrapper"), loadScript(UTIL_URL, "FFmpegUtil")]);
+    const [{ FFmpeg }, util] = await Promise.all([loadScript(`${FF_BASE}/ffmpeg.js`, "FFmpegWASM"), loadScript(UTIL_URL, "FFmpegUtil")]);
     const ff = new FFmpeg();
     ff.on("log", ({ message }) => onLog?.(message));
     await ff.load({
