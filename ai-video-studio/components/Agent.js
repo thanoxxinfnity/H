@@ -2,10 +2,12 @@
 import { useRef, useState } from "react";
 import { Wand2, Loader2, ArrowUp, ArrowDown, Trash2, Plus, Film, Play, AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
 import ConfigFields from "./ConfigFields";
+import ImagePicker from "./ImagePicker";
 import ConfirmModal from "./ConfirmModal";
 import VideoCard from "./VideoCard";
 import { STYLES, CAMERAS, buildPrompt } from "@/lib/prompt";
-import { estimate, fmtUsd, runVideo, newId } from "@/lib/revana";
+import { estimate, fmtUsd, runVideo, newId, modelCaps, uploadBlob } from "@/lib/revana";
+import { extractLastFrame } from "@/lib/frames";
 import { planStory } from "@/lib/agent";
 import { mergeVideos } from "@/lib/merge";
 import { addVideo } from "@/lib/storage";
@@ -25,9 +27,15 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
   const [mergeP, setMergeP] = useState(0);
   const [final, setFinal] = useState(null);
   const blobs = useRef({});
+  const frames = useRef({}); // sceneId -> url of its last frame (for chaining)
+  const [refs, setRefs] = useState([]);
+  const [chain, setChain] = useState(false);
 
   const model = models.find((m) => m.id === cfg.model);
   const scenes = story?.scenes || [];
+  const caps = modelCaps(model);
+  const canChain = caps.start;
+  const useRefs = refs.length > 0 && caps.refs;
   const setScenes = (fn) => setStory((s) => ({ ...s, scenes: fn(s.scenes) }));
   const patchSt = (id, p) => setSt((s) => ({ ...s, [id]: { ...(s[id] || {}), ...p } }));
   const todo = scenes.filter((s) => st[s.id]?.status !== "done");
@@ -38,17 +46,17 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
 
   async function plan() {
     if (!settings.nimKey) return onNeedKey("Add your NVIDIA NIM API key to use Agent mode.");
-    setErr(""); setPlanning(true); setFinal(null); setSt({}); blobs.current = {};
+    setErr(""); setPlanning(true); setFinal(null); setSt({}); blobs.current = {}; frames.current = {};
     try {
       const out = await planStory({ key: settings.nimKey, model: settings.nimModel, idea, count, styleText: STYLES[cfg.style].text });
-      setStory(out);
+      setStory({ ...out, scenes: out.scenes.map((x) => ({ ...x, start: "auto" })) });
     } catch (e) { setErr(e.message); } finally { setPlanning(false); }
   }
 
   const edit = (id, p) => setScenes((ss) => ss.map((s) => (s.id === id ? { ...s, ...p } : s)));
   const move = (i, d) => setScenes((ss) => { const a = [...ss]; const j = i + d; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; return a; });
   const del = (id) => { setScenes((ss) => ss.filter((s) => s.id !== id)); delete blobs.current[id]; setFinal(null); };
-  const add = () => setScenes((ss) => [...ss, { id: `s${Date.now()}`, prompt: "", duration: 5 }]);
+  const add = () => setScenes((ss) => [...ss, { id: `s${Date.now()}`, prompt: "", duration: 5, start: "auto" }]);
 
   function ask() {
     if (!settings.revanaKey) return onNeedKey();
@@ -61,8 +69,16 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
     try {
       const prompt = buildPrompt(s.prompt, cfg.style, cfg.camera);
       const input = { prompt, duration: s.duration, resolution: cfg.resolution, aspect_ratio: cfg.ratio };
+      const idx = scenes.findIndex((x) => x.id === s.id);
+      const prevFrame = chain && canChain && idx > 0 ? frames.current[scenes[idx - 1].id] : null;
+      const picked = s.start && s.start !== "auto" && s.start !== "none" ? refs.find((r) => r.id === s.start) : null;
+      if (s.start === "none") { /* text only */ }
+      else if (picked && caps.start) input.image_url = picked.url;
+      else if (prevFrame) input.image_url = prevFrame;
+      else if (useRefs) input.image_urls = refs.slice(0, caps.maxRefs).map((r) => r.url);
       const { blob, gen } = await runVideo({ key: settings.revanaKey, model: cfg.model, input, onStatus: (g) => patchSt(s.id, { msg: g.status }) });
       blobs.current[s.id] = blob;
+      if (chain && canChain) { try { frames.current[s.id] = await uploadBlob({ key: settings.revanaKey, blob: await extractLastFrame(blob), filename: "lastframe.jpg" }); } catch {} }
       const e = estimate(model, cfg.resolution, s.duration);
       await addVideo({ id: gen.id, kind: "scene", prompt, model: cfg.model, duration: s.duration, resolution: cfg.resolution, ratio: cfg.ratio, cost: gen.cost_usd ?? e.usd, free: e.free, createdAt: Date.now(), blob });
       patchSt(s.id, { status: "done", blob });
@@ -74,7 +90,7 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
     setConfirm(false); setRunning(true); setFinal(null);
     const queue = [...todo];
     const worker = async () => { while (queue.length) await genScene(queue.shift()); };
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker));
+    await Promise.all(Array.from({ length: chain && canChain ? 1 : Math.min(CONCURRENCY, queue.length) }, worker));
     setRunning(false);
   }
 
@@ -97,6 +113,14 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
         <label className="lbl">Scenes: <span className="text-white">{count}</span></label>
         <input type="range" min={2} max={12} value={count} onChange={(e) => setCount(Number(e.target.value))} className="w-full" />
         <ConfigFields models={models} cfg={cfg} setCfg={setCfg} showDuration={false} />
+        <div className="mt-3 rounded-xl border border-line bg-panel2/60 p-3">
+          <ImagePicker label="Characters / reference images" value={refs} onChange={setRefs} max={Math.max(caps.maxRefs, 4)} apiKey={settings.revanaKey} onNeedKey={onNeedKey}
+            hint={caps.refs ? "Used in every scene so your characters stay consistent. You can also choose one as a scene's start frame." : "This model has no reference mode, but you can still use a photo as a scene's start frame."} />
+          <label className={`mt-3 flex items-start gap-2 text-xs ${canChain ? "text-white/70" : "text-white/30"}`}>
+            <input type="checkbox" className="mt-0.5" checked={chain && canChain} disabled={!canChain} onChange={(e) => setChain(e.target.checked)} />
+            <span><b>Chain scenes</b>: last frame of each scene becomes the next scene&apos;s start frame (smoother story, but scenes render one after another).</span>
+          </label>
+        </div>
         <button className="btn-neon mt-5 w-full py-3" onClick={plan} disabled={planning || idea.trim().length < 5}>
           {planning ? <Loader2 className="animate-spin" size={18} /> : <Wand2 size={18} />} {planning ? "Planning the story…" : "Plan story with AI Agent"}
         </button>
@@ -128,6 +152,11 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
                     <span className="grid h-7 w-7 place-items-center rounded-lg bg-neon/15 text-xs font-bold text-neon">{i + 1}</span>
                     <select className="inp !w-auto !py-1.5" value={s.duration} onChange={(e) => edit(s.id, { duration: Number(e.target.value) })} disabled={x.status === "running"}>
                       {Array.from({ length: 11 }, (_, k) => k + 5).map((d) => <option key={d} value={d}>{d}s</option>)}
+                    </select>
+                    <select className="inp !w-auto max-w-[44%] !py-1.5 text-xs" value={s.start || "auto"} onChange={(e) => edit(s.id, { start: e.target.value })} disabled={x.status === "running"} title="Start frame for this scene">
+                      <option value="auto">Start: auto</option>
+                      <option value="none">Start: text only</option>
+                      {refs.map((r, k) => <option key={r.id} value={r.id}>Start: image {k + 1}</option>)}
                     </select>
                     <div className="ml-auto flex gap-1">
                       <button className="btn-ghost !p-2" onClick={() => move(i, -1)} disabled={i === 0 || running} aria-label="Move up"><ArrowUp size={14} /></button>
@@ -169,7 +198,7 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
       </div>
 
       <ConfirmModal open={confirm} onCancel={() => setConfirm(false)} onConfirm={generateAll} title="Confirm & generate all scenes"
-        rows={[["Scenes", `${todo.length} · ${totalSec}s`], ["Model", model?.name || cfg.model], ["Resolution", `${cfg.resolution} · ${cfg.ratio}`], ["Style / camera", `${STYLES[cfg.style].label} / ${CAMERAS[cfg.camera].label}`]]}
+        rows={[["Scenes", `${todo.length} · ${totalSec}s`], ["Model", model?.name || cfg.model], ["Resolution", `${cfg.resolution} · ${cfg.ratio}`], ["Style / camera", `${STYLES[cfg.style].label} / ${CAMERAS[cfg.camera].label}`], ["Images", useRefs ? `${refs.length} character ref(s)` : refs.length ? "start frames" : "none (text → video)"], ["Mode", chain && canChain ? "Chained, one by one" : `Up to ${CONCURRENCY} at a time`]]}
         items={todo.map((s) => buildPrompt(s.prompt, cfg.style, cfg.camera))} usd={total.usd} credits={total.credits} free={free} />
     </div>
   );

@@ -80,3 +80,21 @@ export async function runVideo({ key, model, input, onStatus, signal }) {
   const blob = await downloadContent({ key, id: g.id });
   return { blob, gen: g };
 }
+
+/** Uploads a file/blob to Revana (presigned PUT) and returns a public https link good for 14 days. */
+export async function uploadBlob({ key, blob, filename }) {
+  const r = await api("/uploads", key, {
+    method: "POST",
+    body: JSON.stringify({ content_type: blob.type || "image/jpeg", bytes: blob.size, filename: filename || "image.jpg" }),
+  });
+  const u = await r.json();
+  const put = await fetch(u.upload_url, { method: u.upload_method || "PUT", headers: u.upload_headers || {}, body: blob });
+  if (!put.ok) throw new Error(`Image upload failed (${put.status})`);
+  return u.url;
+}
+
+export function modelCaps(model) {
+  const tasks = model?.tasks || [];
+  const max = model?.options?.max_input_images || 0;
+  return { start: tasks.includes("image_to_video"), refs: tasks.includes("reference_to_video") && max > 0, maxRefs: max };
+}
