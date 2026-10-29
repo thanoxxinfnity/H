@@ -8,7 +8,9 @@ import SettingsModal from "@/components/SettingsModal";
 import { fitConfig } from "@/components/ConfigFields";
 import { loadSettings, saveSettings, DEFAULT_SETTINGS } from "@/lib/storage";
 import { listVideoModels, getBalance } from "@/lib/revana";
-import { fetchNimModels, pickFallback, diffAgainstCache } from "@/lib/nimModels";
+import { fetchNimModels, pickFallback } from "@/lib/nimModels";
+import { fetchGeminiModels, pickGeminiFallback } from "@/lib/gemini";
+import { useLiveModels } from "@/lib/useLiveModels";
 
 const TABS = [["create", "Create", Clapperboard], ["agent", "Agent", Wand2], ["history", "History", HistoryIcon]];
 
@@ -32,38 +34,13 @@ export default function Page() {
       setCfg((c) => { const pick = m.find((x) => x.id === c.model) || m.find((x) => x.price?.free) || m[0]; return pick ? fitConfig({ ...c, model: pick.id }, pick) : c; });
     }).catch((e) => setModelErr(e.message));
   }, []);
-  const [nimList, setNimList] = useState([]);
-  const [nimLoading, setNimLoading] = useState(false);
-  const [nimError, setNimError] = useState("");
-  const [nimUpdated, setNimUpdated] = useState(null);
+  const [nimNotice, setNimNotice] = useState("");
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
-  const setNimModel = useCallback((id) => { const n = { ...settingsRef.current, nimModel: id }; setSettings(n); saveSettings(n); }, []);
-  const refreshNim = useCallback(async () => {
-    setNimLoading(true); setNimError("");
-    try {
-      const list = await fetchNimModels(settingsRef.current.nimKey);
-      setNimList(list); setNimUpdated(Date.now());
-      const { added, removed } = diffAgainstCache(list);
-      const cur = settingsRef.current.nimModel;
-      let msg = "";
-      if (cur && !list.includes(cur)) { const fb = pickFallback(list); setNimModel(fb); msg = `NVIDIA removed "${cur}" - switched to ${fb}. `; }
-      if (removed.length) msg += `Removed: ${removed.join(", ")}. `;
-      if (added.length) msg += `New: ${added.join(", ")}.`;
-      if (msg) setNimNotice(msg.trim());
-    } catch (e) { setNimError(e.message); }
-    setNimLoading(false);
-  }, [setNimModel]);
-  const [nimNotice, setNimNotice] = useState("");
-  useEffect(() => {
-    if (!ready) return;
-    refreshNim();
-    const t = setInterval(refreshNim, 10 * 60 * 1000);
-    const vis = () => { if (document.visibilityState === "visible") refreshNim(); };
-    document.addEventListener("visibilitychange", vis);
-    return () => { clearInterval(t); document.removeEventListener("visibilitychange", vis); };
-  }, [ready, refreshNim]);
-  const nim = { models: nimList, loading: nimLoading, error: nimError, updatedAt: nimUpdated, refresh: refreshNim };
+  const patchSettings = useCallback((p) => { const n = { ...settingsRef.current, ...p }; settingsRef.current = n; setSettings(n); saveSettings(n); }, []);
+  const nim = useLiveModels({ id: "nim", enabled: ready, fetcher: () => fetchNimModels(settings.nimKey), fallback: pickFallback, current: settings.nimModel, setCurrent: (v) => patchSettings({ nimModel: v }), onNotice: (m) => setNimNotice(`NVIDIA: ${m}`) });
+  const gemini = useLiveModels({ id: "gemini", enabled: ready && !!settings.geminiKey, fetcher: () => fetchGeminiModels(settings.geminiKey), fallback: pickGeminiFallback, current: settings.geminiModel, setCurrent: (v) => patchSettings({ geminiModel: v }), onNotice: (m) => setNimNotice(`Gemini: ${m}`) });
+  const live = { nim, gemini };
 
   const refreshBal = useCallback(() => {
     if (!settings.revanaKey) return setBal(null);
@@ -100,11 +77,11 @@ export default function Page() {
           Add your <b>Revana API key</b> in Settings to start generating. Free model <code>minimax-h3-free</code> costs $0.
         </button>
       )}
-      {nimNotice && <p className="mb-3 flex items-start gap-2 rounded-xl border border-lime/40 bg-lime/10 px-3 py-2 text-xs text-lime"><span className="flex-1 break-words">NVIDIA models updated: {nimNotice}</span><button onClick={() => setNimNotice("")} aria-label="Dismiss">x</button></p>}
+      {nimNotice && <p className="mb-3 flex items-start gap-2 rounded-xl border border-lime/40 bg-lime/10 px-3 py-2 text-xs text-lime"><span className="flex-1 break-words">Model list updated - {nimNotice}</span><button onClick={() => setNimNotice("")} aria-label="Dismiss">x</button></p>}
       {modelErr && <p className="mb-3 text-xs text-pink">Could not load models: {modelErr}</p>}
 
       {ready && tab === "create" && <Create settings={settings} models={models} cfg={cfg} setCfg={setCfg} prompt={prompt} setPrompt={setPrompt} onNeedKey={needKey} onSaved={onSaved} />}
-      {ready && tab === "agent" && <Agent nim={nim} setNimModel={setNimModel} settings={settings} models={models} cfg={cfg} setCfg={setCfg} onNeedKey={needKey} onSaved={onSaved} />}
+      {ready && tab === "agent" && <Agent live={live} patchSettings={patchSettings} settings={settings} models={models} cfg={cfg} setCfg={setCfg} onNeedKey={needKey} onSaved={onSaved} />}
       {ready && tab === "history" && <History refreshKey={hKey} onReuse={reuse} />}
 
       <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-line bg-ink/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
@@ -114,7 +91,7 @@ export default function Page() {
       </nav>
 
       {showSettings && (
-        <SettingsModal nim={nim} open onClose={() => setShowSettings(false)} settings={settings} notice={notice}
+        <SettingsModal live={live} open onClose={() => setShowSettings(false)} settings={settings} notice={notice}
           onSave={(s) => { setSettings(s); saveSettings(s); }} />
       )}
     </div>

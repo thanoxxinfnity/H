@@ -3,6 +3,9 @@ export const DEFAULT_SETTINGS = {
   revanaKey: "",
   nimKey: "",
   nimModel: "meta/llama-3.3-70b-instruct",
+  provider: "nim",
+  geminiKey: "",
+  geminiModel: "gemini-2.5-flash",
   defaultModel: "minimax-h3-free",
 };
 

@@ -19,7 +19,7 @@ function KeyField({ label, value, onChange, placeholder, hint }) {
   );
 }
 
-export default function SettingsModal({ open, onClose, settings, onSave, notice, nim }) {
+export default function SettingsModal({ open, onClose, settings, onSave, notice, live }) {
   const [s, setS] = useState(settings);
   const [bal, setBal] = useState(null);
   const [err, setErr] = useState("");
@@ -29,7 +29,7 @@ export default function SettingsModal({ open, onClose, settings, onSave, notice,
     setErr(""); setBal(null);
     try { setBal(await getBalance(s.revanaKey.trim())); } catch (e) { setErr(e.message); }
   }
-  function save() { onSave({ ...s, revanaKey: s.revanaKey.trim(), nimKey: s.nimKey.trim() }); onClose(); }
+  function save() { onSave({ ...s, revanaKey: s.revanaKey.trim(), nimKey: s.nimKey.trim(), geminiKey: (s.geminiKey || "").trim() }); onClose(); }
 
   return (
     <Modal open={open} onClose={onClose} title="Settings">
@@ -42,8 +42,13 @@ export default function SettingsModal({ open, onClose, settings, onSave, notice,
         {err && <span className="text-xs text-pink">{err}</span>}
       </div>
       <KeyField label="NVIDIA NIM API key (Agent mode)" value={s.nimKey} onChange={set("nimKey")} placeholder="nvapi-..." hint="Used to plan the story and split it into scenes" />
-      <label className="lbl">NIM model</label>
-      <NimSelect nim={nim} value={s.nimModel} onChange={set("nimModel")} />
+      <label className="lbl">NVIDIA model</label>
+      <NimSelect nim={live.nim} value={s.nimModel} onChange={set("nimModel")} />
+      <KeyField label="Google Gemini API key (Agent mode)" value={s.geminiKey || ""} onChange={set("geminiKey")} placeholder="AIza..." hint="Optional alternative to NVIDIA. The Director chat can use either." />
+      <label className="lbl">Gemini model</label>
+      <NimSelect nim={live.gemini} label="Gemini" value={s.geminiModel} onChange={set("geminiModel")} placeholder="gemini-2.5-flash" />
+      <label className="lbl">Director uses</label>
+      <select className="inp" value={s.provider} onChange={(e) => set("provider")(e.target.value)}><option value="nim">NVIDIA NIM</option><option value="gemini">Google Gemini</option></select>
       <label className="lbl">Default video model</label>
       <input className="inp" value={s.defaultModel} onChange={(e) => set("defaultModel")(e.target.value)} placeholder="minimax-h3-free" spellCheck={false} />
       <button className="btn-neon mt-5 w-full" onClick={save}><Save size={16} /> Save settings</button>

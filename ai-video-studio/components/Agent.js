@@ -1,6 +1,6 @@
 "use client";
-import { useRef, useState } from "react";
-import { Sparkles, Wand2, Loader2, ArrowUp, ArrowDown, Trash2, Plus, Film, Play, AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Sparkles, Wand2, Loader2, ArrowUp, ArrowDown, Trash2, Plus, Film, Play, AlertTriangle, CheckCircle2, RefreshCw, Send, Bot, User } from "lucide-react";
 import ConfigFields from "./ConfigFields";
 import ImagePicker from "./ImagePicker";
 import ConfirmModal from "./ConfirmModal";
@@ -9,16 +9,19 @@ import { STYLES, CAMERAS, buildPrompt } from "@/lib/prompt";
 import { estimate, fmtUsd, runVideo, newId, modelCaps, uploadBlob, mediaSupport, mediaInput } from "@/lib/revana";
 import NimSelect from "./NimSelect";
 import { extractLastFrame } from "@/lib/frames";
-import { planStory, rewriteScene } from "@/lib/agent";
+import { directorChat, rewriteScene } from "@/lib/agent";
+import { PROVIDERS, activeProvider, llmReady } from "@/lib/llm";
 import { mergeVideos } from "@/lib/merge";
 import { addVideo } from "@/lib/storage";
 
 const CONCURRENCY = 2;
 
-export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSaved, nim, setNimModel }) {
-  const [idea, setIdea] = useState("");
-  const [count, setCount] = useState(5);
-  const [planning, setPlanning] = useState(false);
+export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSaved, live, patchSettings }) {
+  const [msgs, setMsgs] = useState([{ role: "assistant", content: "Hi! Main tumhara AI Director hoon \ud83c\udfac Bata kya video/story banani hai - characters, mood, style. Main puchh puchh ke accha prompt bana dunga, aur tum bologe \"bana do\" to generation start kar dunga." }]);
+  const [draft, setDraft] = useState("");
+  const [thinking, setThinking] = useState(false);
+  const [wantGen, setWantGen] = useState(false);
+  const chatEnd = useRef(null);
   const [err, setErr] = useState("");
   const [story, setStory] = useState(null); // {title, characters, scenes:[{id,prompt,duration}]}
   const [st, setSt] = useState({}); // sceneId -> {status, blob, msg}
@@ -50,19 +53,38 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
   const free = estimate(model, cfg.resolution, 5).free;
   const allDone = scenes.length > 0 && scenes.every((s) => st[s.id]?.status === "done");
 
-  async function plan() {
-    if (!settings.nimKey) return onNeedKey("Add your NVIDIA NIM API key to use Agent mode.");
-    setErr(""); setPlanning(true); setFinal(null); setSt({}); blobs.current = {}; frames.current = {};
+  const prov = activeProvider(settings);
+  const providerKey = `${settings.provider === "gemini" ? "gemini" : "nim"}`;
+  useEffect(() => { chatEnd.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, [msgs, thinking]);
+
+  async function send(text) {
+    text = (text ?? draft).trim();
+    if (!text || thinking) return;
+    if (!llmReady(settings)) return onNeedKey(`Add your ${prov.label} API key in Settings to chat with the Director.`);
+    setErr(""); setDraft("");
+    const history = [...msgs, { role: "user", content: text }];
+    setMsgs(history); setThinking(true);
     try {
-      const out = await planStory({ key: settings.nimKey, model: settings.nimModel, idea, count, styleText: STYLES[cfg.style].text });
-      setStory({ ...out, scenes: out.scenes.map((x) => ({ ...x, start: "auto" })) });
-    } catch (e) { setErr(e.message); } finally { setPlanning(false); }
+      const out = await directorChat({ settings, history, story, styleText: STYLES[cfg.style].text });
+      setMsgs([...history, { role: "assistant", content: out.reply }]);
+      if (out.story) {
+        const old = story?.scenes || [];
+        setStory({ ...out.story, scenes: out.story.scenes.map((x, i) => (old[i] && old[i].prompt.trim() === x.prompt.trim() && old[i].duration === x.duration ? old[i] : { ...x, start: "auto" })) });
+        setFinal(null);
+      }
+      if (out.generate) setWantGen(true);
+    } catch (e) { setErr(e.message); setMsgs(history); } finally { setThinking(false); }
   }
+  useEffect(() => {
+    if (!wantGen || thinking) return;
+    setWantGen(false);
+    if (story && todo.length) ask();
+  }, [wantGen, story, thinking]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function aiRewrite(s) {
-    if (!settings.nimKey) return onNeedKey("Add your NVIDIA NIM API key to use AI rewrite.");
+    if (!llmReady(settings)) return onNeedKey(`Add your ${prov.label} API key to use AI rewrite.`);
     setRewriting(s.id);
-    try { edit(s.id, { prompt: await rewriteScene({ key: settings.nimKey, model: settings.nimModel, prompt: s.prompt, characters: story?.characters, styleText: STYLES[cfg.style].text }) }); }
+    try { edit(s.id, { prompt: await rewriteScene({ settings, prompt: s.prompt, characters: story?.characters, styleText: STYLES[cfg.style].text }) }); }
     catch (e) { setErr(e.message); } finally { setRewriting(""); }
   }
   const edit = (id, p) => setScenes((ss) => ss.map((s) => (s.id === id ? { ...s, ...p } : s)));
@@ -119,14 +141,39 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
   }
 
   return (
+    <div className="space-y-4">
+      <div className="card">
+        <div className="mb-2 flex items-center gap-2 text-sm font-bold text-white"><Bot size={16} className="text-pink" /> Chat with your Director <span className="ml-auto text-[10px] font-normal text-white/40">{prov.label} · {settings[prov.modelField]}</span></div>
+        <div className="max-h-[360px] min-h-[140px] space-y-2 overflow-y-auto rounded-xl border border-line bg-ink/60 p-3">
+          {msgs.map((m, i) => (
+            <div key={i} className={`flex gap-2 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
+              <span className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full ${m.role === "user" ? "bg-neon/20 text-neon" : "bg-pink/20 text-pink"}`}>{m.role === "user" ? <User size={13} /> : <Bot size={13} />}</span>
+              <p className={`max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-[13px] leading-snug ${m.role === "user" ? "bg-neon/10 text-white" : "bg-panel2 text-white/85"}`}>{m.content}</p>
+            </div>
+          ))}
+          {thinking && <p className="flex items-center gap-2 text-xs text-white/50"><Loader2 className="animate-spin" size={13} /> Director soch raha hai…</p>}
+          <div ref={chatEnd} />
+        </div>
+        {story && !thinking && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {["Bana do, generate karo", "Aur dramatic banao", "Ek scene aur add karo"].map((q) => <button key={q} className="chip" onClick={() => send(q)}>{q}</button>)}
+          </div>
+        )}
+        <form className="mt-2 flex gap-2" onSubmit={(e) => { e.preventDefault(); send(); }}>
+          <input className="inp" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Apna idea likho… (e.g. ek lone swordsman, ruined city, dawn)" />
+          <button className="btn-neon px-4" type="submit" disabled={thinking || !draft.trim()} aria-label="Send">{thinking ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}</button>
+        </form>
+        {err && <p className="mt-2 flex items-start gap-2 text-xs text-pink"><AlertTriangle size={14} className="mt-0.5 shrink-0" />{err}</p>}
+      </div>
     <div className="grid gap-4 lg:grid-cols-[minmax(0,420px)_1fr]">
       <div className="card">
-        <label className="lbl !mt-0">AI model (NVIDIA NIM)</label>
-        <NimSelect nim={nim} value={settings.nimModel} onChange={setNimModel} />
-        <label className="lbl">Your idea</label>
-        <textarea className="inp min-h-[110px] resize-y" value={idea} onChange={(e) => setIdea(e.target.value)} placeholder="e.g. A lone swordsman crosses a ruined city to face a masked sorcerer at dawn…" />
-        <label className="lbl">Scenes: <span className="text-white">{count}</span></label>
-        <input type="range" min={2} max={12} value={count} onChange={(e) => setCount(Number(e.target.value))} className="w-full" />
+        <label className="lbl !mt-0">Director AI</label>
+        <div className="mb-2 flex gap-2">
+          {Object.entries(PROVIDERS).map(([k, p]) => (
+            <button key={k} type="button" onClick={() => patchSettings({ provider: k })} className={`btn flex-1 !py-2 text-xs ${settings.provider === k ? "bg-neon/15 text-neon ring-1 ring-neon" : "border border-line bg-panel2 text-white/60"}`}>{p.label}</button>
+          ))}
+        </div>
+        <NimSelect nim={live[providerKey]} label={prov.label} value={settings[prov.modelField]} onChange={(v) => patchSettings({ [prov.modelField]: v })} placeholder={providerKey === "gemini" ? "gemini-2.5-flash" : "meta/llama-3.3-70b-instruct"} />
         <ConfigFields models={models} cfg={cfg} setCfg={setCfg} showDuration={false} />
         <div className="mt-3 rounded-xl border border-line bg-panel2/60 p-3">
           <ImagePicker kinds={kinds} label="Characters / reference files" value={refs} onChange={setRefs} max={Math.max(caps.maxRefs, 4) + 4} apiKey={settings.revanaKey} onNeedKey={onNeedKey}
@@ -136,18 +183,14 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
             <span><b>Chain scenes</b>: last frame of each scene becomes the next scene&apos;s start frame (smoother story, but scenes render one after another).</span>
           </label>
         </div>
-        <button className="btn-neon mt-5 w-full py-3" onClick={plan} disabled={planning || idea.trim().length < 5}>
-          {planning ? <Loader2 className="animate-spin" size={18} /> : <Wand2 size={18} />} {planning ? "Planning the story…" : "Plan story with AI Agent"}
-        </button>
-        {err && <p className="mt-3 flex items-start gap-2 text-xs text-pink"><AlertTriangle size={14} className="mt-0.5 shrink-0" />{err}</p>}
       </div>
 
       <div className="space-y-3">
         {!story && (
           <div className="card flex min-h-[260px] flex-col items-center justify-center text-center text-white/40">
             <Wand2 className="mb-2 text-pink/70" size={34} />
-            <p className="text-sm">The Agent turns one idea into a full story, scene by scene.</p>
-            <p className="mt-1 text-xs">Then edit, reorder or delete scenes, generate them, and merge into one video.</p>
+            <p className="text-sm">Chat with the Director above - your storyboard appears here.</p>
+            <p className="mt-1 text-xs">Edit, reorder or delete scenes, generate them, and merge into one video.</p>
           </div>
         )}
 
@@ -220,6 +263,7 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
       <ConfirmModal open={confirm} onCancel={() => setConfirm(false)} onConfirm={generateAll} title="Confirm & generate all scenes"
         rows={[["Scenes", `${todo.length} · ${totalSec}s`], ["Model", model?.name || cfg.model], ["Resolution", `${cfg.resolution} · ${cfg.ratio}`], ["Style / camera", `${STYLES[cfg.style].label} / ${CAMERAS[cfg.camera].label}`], ["Images", useRefs ? `${refs.length} character ref(s)` : refs.length ? "start frames" : "none (text → video)"], ["Mode", chain && canChain ? "Chained, one by one" : `Up to ${CONCURRENCY} at a time`]]}
         items={todo.map((s) => buildPrompt(s.prompt, cfg.style, cfg.camera))} usd={total.usd} credits={total.credits} free={free} />
+    </div>
     </div>
   );
 }
