@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Eye, EyeOff, Wallet, Save } from "lucide-react";
 import Modal from "./Modal";
+import NimSelect from "./NimSelect";
 import { getBalance } from "@/lib/revana";
 
 function KeyField({ label, value, onChange, placeholder, hint }) {
@@ -18,7 +19,7 @@ function KeyField({ label, value, onChange, placeholder, hint }) {
   );
 }
 
-export default function SettingsModal({ open, onClose, settings, onSave, notice }) {
+export default function SettingsModal({ open, onClose, settings, onSave, notice, nim }) {
   const [s, setS] = useState(settings);
   const [bal, setBal] = useState(null);
   const [err, setErr] = useState("");
@@ -42,7 +43,7 @@ export default function SettingsModal({ open, onClose, settings, onSave, notice 
       </div>
       <KeyField label="NVIDIA NIM API key (Agent mode)" value={s.nimKey} onChange={set("nimKey")} placeholder="nvapi-..." hint="Used to plan the story and split it into scenes" />
       <label className="lbl">NIM model</label>
-      <input className="inp" value={s.nimModel} onChange={(e) => set("nimModel")(e.target.value)} placeholder="meta/llama-3.3-70b-instruct" spellCheck={false} />
+      <NimSelect nim={nim} value={s.nimModel} onChange={set("nimModel")} />
       <label className="lbl">Default video model</label>
       <input className="inp" value={s.defaultModel} onChange={(e) => set("defaultModel")(e.target.value)} placeholder="minimax-h3-free" spellCheck={false} />
       <button className="btn-neon mt-5 w-full" onClick={save}><Save size={16} /> Save settings</button>

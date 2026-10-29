@@ -6,7 +6,7 @@ import ImagePicker from "./ImagePicker";
 import ConfirmModal from "./ConfirmModal";
 import VideoCard from "./VideoCard";
 import { buildPrompt, STYLES, CAMERAS } from "@/lib/prompt";
-import { estimate, fmtUsd, runVideo, newId, modelCaps } from "@/lib/revana";
+import { estimate, fmtUsd, runVideo, newId, modelCaps, mediaSupport, mediaInput } from "@/lib/revana";
 import { addVideo } from "@/lib/storage";
 
 function Elapsed({ t0 }) {
@@ -25,8 +25,10 @@ export default function Create({ settings, models, cfg, setCfg, prompt, setPromp
   const est = estimate(model, cfg.resolution, cfg.duration);
   const caps = modelCaps(model);
   const mode = imgMode === "refs" && caps.refs ? "refs" : caps.start ? "start" : caps.refs ? "refs" : "none";
-  const maxImgs = mode === "refs" ? caps.maxRefs : 1;
-  const used = mode === "none" ? [] : images.slice(0, maxImgs);
+  const sup = mediaSupport(model);
+  const kinds = [...(mode === "none" ? [] : ["image"]), ...(sup.video ? ["video"] : []), ...(sup.audio ? ["audio"] : [])];
+  const maxFiles = (mode === "refs" ? Math.max(caps.maxRefs, 1) : 1) + (sup.video ? 3 : 0) + (sup.audio ? 3 : 0);
+  const used = images.filter((i) => kinds.includes(i.kind || "image"));
   const patch = (uid, p) => setJobs((js) => js.map((j) => (j.uid === uid ? { ...j, ...p } : j)));
 
   function ask() {
@@ -42,7 +44,7 @@ export default function Create({ settings, models, cfg, setCfg, prompt, setPromp
     setJobs((js) => [{ uid, prompt: full, status: "queued", t0: Date.now(), cfg: c }, ...js]);
     try {
       const input = { prompt: full, duration: c.duration, resolution: c.resolution, aspect_ratio: c.ratio };
-      if (c.used.length) { if (c.mode === "refs") input.image_urls = c.used.map((i) => i.url); else input.image_url = c.used[0].url; }
+      Object.assign(input, mediaInput(model, c.used, { mode: c.mode }));
       const { blob, gen } = await runVideo({ key: settings.revanaKey, model: c.model, input, onStatus: (g) => patch(uid, { status: g.status }) });
       const rec = { id: gen.id, kind: "video", prompt: full, model: c.model, duration: c.duration, resolution: c.resolution, ratio: c.ratio,
         cost: gen.cost_usd ?? est.usd, free: est.free, createdAt: Date.now(), blob };
@@ -66,9 +68,9 @@ export default function Create({ settings, models, cfg, setCfg, prompt, setPromp
             <span className={`chip !py-1 ${mode === "refs" ? "border-pink bg-pink/15 text-pink" : "border-line text-white/50"} ${caps.refs ? "cursor-pointer" : "opacity-40"}`} onClick={() => caps.refs && setImgMode("refs")}>Character refs</span>
             <span className="ml-auto">{used.length ? "" : "Text → Video"}</span>
           </div>
-          {mode === "none" ? <p className="text-[11px] text-white/40">This model is text-to-video only.</p> : (
-            <ImagePicker label={mode === "refs" ? "Character / reference images" : "Start frame photo"} value={images} onChange={setImages} max={maxImgs} apiKey={settings.revanaKey} onNeedKey={onNeedKey}
-              hint={mode === "refs" ? "These people/objects will appear in the video." : "Your photo becomes the first frame and gets animated. Leave empty for pure text-to-video."} />
+          {kinds.length === 0 ? <p className="text-[11px] text-white/40">This model is text-to-video only.</p> : (
+            <ImagePicker kinds={kinds} label={mode === "refs" ? "Character / reference files" : "Your files"} value={images} onChange={setImages} max={maxFiles} apiKey={settings.revanaKey} onNeedKey={onNeedKey}
+              hint={mode === "refs" ? "Characters/objects to appear in the video." : "A photo becomes the first frame and gets animated. Leave empty for pure text-to-video."} />
           )}
         </div>
         <ConfigFields models={models} cfg={cfg} setCfg={setCfg} />
@@ -103,7 +105,7 @@ export default function Create({ settings, models, cfg, setCfg, prompt, setPromp
       </div>
 
       <ConfirmModal open={confirm} onCancel={() => setConfirm(false)} onConfirm={start}
-        rows={[["Model", model?.name || cfg.model], ["Duration", `${cfg.duration}s`], ["Resolution", `${cfg.resolution} · ${cfg.ratio}`], ["Style / camera", `${STYLES[cfg.style].label} / ${CAMERAS[cfg.camera].label}`], ["Mode", used.length ? (mode === "refs" ? `${used.length} reference image(s)` : "Image → Video (your photo)") : "Text → Video"]]}
+        rows={[["Model", model?.name || cfg.model], ["Duration", `${cfg.duration}s`], ["Resolution", `${cfg.resolution} · ${cfg.ratio}`], ["Style / camera", `${STYLES[cfg.style].label} / ${CAMERAS[cfg.camera].label}`], ["Mode", used.length ? (mode === "refs" ? `${used.length} reference file(s)` : "Image → Video (your photo)") : "Text → Video"]]}
         items={[full]} usd={est.usd} credits={est.credits} free={est.free} />
     </div>
   );

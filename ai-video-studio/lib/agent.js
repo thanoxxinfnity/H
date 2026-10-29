@@ -41,3 +41,14 @@ export async function planStory({ key, model, idea, count, styleText }) {
   const text = await nimChat({ key, model, messages: [{ role: "system", content: system }, { role: "user", content: idea }] });
   return normalizeScenes(extractJson(text));
 }
+
+export async function rewriteScene({ key, model, prompt, characters, styleText }) {
+  const system = "You improve text-to-video scene prompts. Rewrite the user's scene prompt to be vivid, concrete and cinematic " +
+    "(setting, action, lighting, one camera move) in at most 70 words. Keep the same characters and story beat" +
+    (characters ? `; character look to keep consistent: ${characters}` : "") + (styleText ? `; visual style: ${styleText}` : "") +
+    ". Use original characters only. Reply with the rewritten prompt text only, no quotes, no preamble.";
+  const text = await nimChat({ key, model, messages: [{ role: "system", content: system }, { role: "user", content: prompt }], temperature: 0.8, max_tokens: 400 });
+  const out = text.trim().replace(/^["'`]+|["'`]+$/g, "");
+  if (!out) throw new Error("The model returned an empty rewrite");
+  return out;
+}

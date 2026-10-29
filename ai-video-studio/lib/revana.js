@@ -98,3 +98,32 @@ export function modelCaps(model) {
   const max = model?.options?.max_input_images || 0;
   return { start: tasks.includes("image_to_video"), refs: tasks.includes("reference_to_video") && max > 0, maxRefs: max };
 }
+
+/** Which attachment types a model can take. */
+export function mediaSupport(model) {
+  const id = model?.id || "", tasks = model?.tasks || [];
+  return {
+    video: id === "seedance-2.5" || tasks.includes("video_to_video"),
+    audio: id === "seedance-2.5" || /avatar|lipsync|omnihuman|infinitalk|speech-to-video/.test(id),
+  };
+}
+
+/** Turns picked attachments into the right Revana input fields for this model. */
+export function mediaInput(model, items, { mode = "start", startOverride = null } = {}) {
+  const out = {};
+  const caps = modelCaps(model), sup = mediaSupport(model);
+  const imgs = items.filter((i) => (i.kind || "image") === "image");
+  const vids = items.filter((i) => i.kind === "video");
+  const auds = items.filter((i) => i.kind === "audio");
+  const seed25 = model?.id === "seedance-2.5";
+  if (sup.video && vids.length) { if (seed25) out.video_urls = vids.slice(0, 10).map((v) => v.url); else out.video_url = vids[0].url; }
+  if (sup.audio && auds.length) { if (seed25) out.audio_urls = auds.slice(0, 10).map((a) => a.url); else out.audio_url = auds[0].url; }
+  const hasRefMedia = !!(out.video_urls || out.audio_urls);
+  if (startOverride && caps.start) out.image_url = startOverride;
+  else if (imgs.length) {
+    if ((mode === "refs" || (seed25 && hasRefMedia)) && caps.refs) out.image_urls = imgs.slice(0, caps.maxRefs).map((i) => i.url);
+    else if (caps.start) out.image_url = imgs[0].url;
+    else if (caps.refs) out.image_urls = imgs.slice(0, caps.maxRefs).map((i) => i.url);
+  }
+  return out;
+}

@@ -1,20 +1,21 @@
 "use client";
 import { useRef, useState } from "react";
-import { Wand2, Loader2, ArrowUp, ArrowDown, Trash2, Plus, Film, Play, AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
+import { Sparkles, Wand2, Loader2, ArrowUp, ArrowDown, Trash2, Plus, Film, Play, AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
 import ConfigFields from "./ConfigFields";
 import ImagePicker from "./ImagePicker";
 import ConfirmModal from "./ConfirmModal";
 import VideoCard from "./VideoCard";
 import { STYLES, CAMERAS, buildPrompt } from "@/lib/prompt";
-import { estimate, fmtUsd, runVideo, newId, modelCaps, uploadBlob } from "@/lib/revana";
+import { estimate, fmtUsd, runVideo, newId, modelCaps, uploadBlob, mediaSupport, mediaInput } from "@/lib/revana";
+import NimSelect from "./NimSelect";
 import { extractLastFrame } from "@/lib/frames";
-import { planStory } from "@/lib/agent";
+import { planStory, rewriteScene } from "@/lib/agent";
 import { mergeVideos } from "@/lib/merge";
 import { addVideo } from "@/lib/storage";
 
 const CONCURRENCY = 2;
 
-export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSaved }) {
+export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSaved, nim, setNimModel }) {
   const [idea, setIdea] = useState("");
   const [count, setCount] = useState(5);
   const [planning, setPlanning] = useState(false);
@@ -35,7 +36,12 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
   const scenes = story?.scenes || [];
   const caps = modelCaps(model);
   const canChain = caps.start;
-  const useRefs = refs.length > 0 && caps.refs;
+  const sup = mediaSupport(model);
+  const kinds = ["image", ...(sup.video ? ["video"] : []), ...(sup.audio ? ["audio"] : [])];
+  const refImgs = refs.filter((r) => (r.kind || "image") === "image");
+  const useRefs = refImgs.length > 0 && caps.refs;
+  const doneCount = scenes.filter((s) => st[s.id]?.status === "done").length;
+  const [rewriting, setRewriting] = useState("");
   const setScenes = (fn) => setStory((s) => ({ ...s, scenes: fn(s.scenes) }));
   const patchSt = (id, p) => setSt((s) => ({ ...s, [id]: { ...(s[id] || {}), ...p } }));
   const todo = scenes.filter((s) => st[s.id]?.status !== "done");
@@ -53,6 +59,12 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
     } catch (e) { setErr(e.message); } finally { setPlanning(false); }
   }
 
+  async function aiRewrite(s) {
+    if (!settings.nimKey) return onNeedKey("Add your NVIDIA NIM API key to use AI rewrite.");
+    setRewriting(s.id);
+    try { edit(s.id, { prompt: await rewriteScene({ key: settings.nimKey, model: settings.nimModel, prompt: s.prompt, characters: story?.characters, styleText: STYLES[cfg.style].text }) }); }
+    catch (e) { setErr(e.message); } finally { setRewriting(""); }
+  }
   const edit = (id, p) => setScenes((ss) => ss.map((s) => (s.id === id ? { ...s, ...p } : s)));
   const move = (i, d) => setScenes((ss) => { const a = [...ss]; const j = i + d; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; return a; });
   const del = (id) => { setScenes((ss) => ss.filter((s) => s.id !== id)); delete blobs.current[id]; setFinal(null); };
@@ -71,11 +83,12 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
       const input = { prompt, duration: s.duration, resolution: cfg.resolution, aspect_ratio: cfg.ratio };
       const idx = scenes.findIndex((x) => x.id === s.id);
       const prevFrame = chain && canChain && idx > 0 ? frames.current[scenes[idx - 1].id] : null;
-      const picked = s.start && s.start !== "auto" && s.start !== "none" ? refs.find((r) => r.id === s.start) : null;
-      if (s.start === "none") { /* text only */ }
-      else if (picked && caps.start) input.image_url = picked.url;
-      else if (prevFrame) input.image_url = prevFrame;
-      else if (useRefs) input.image_urls = refs.slice(0, caps.maxRefs).map((r) => r.url);
+      const picked = s.start && s.start !== "auto" && s.start !== "none" ? refImgs.find((r) => r.id === s.start) : null;
+      const others = refs.filter((r) => r.kind && r.kind !== "image");
+      if (s.start === "none") Object.assign(input, mediaInput(model, others));
+      else if (picked) Object.assign(input, mediaInput(model, [...others, ...refImgs], { startOverride: picked.url }));
+      else if (prevFrame) Object.assign(input, mediaInput(model, others, { startOverride: prevFrame }));
+      else Object.assign(input, mediaInput(model, refs, { mode: "refs" }));
       const { blob, gen } = await runVideo({ key: settings.revanaKey, model: cfg.model, input, onStatus: (g) => patchSt(s.id, { msg: g.status }) });
       blobs.current[s.id] = blob;
       if (chain && canChain) { try { frames.current[s.id] = await uploadBlob({ key: settings.revanaKey, blob: await extractLastFrame(blob), filename: "lastframe.jpg" }); } catch {} }
@@ -108,14 +121,16 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,420px)_1fr]">
       <div className="card">
-        <label className="lbl !mt-0">Your idea</label>
+        <label className="lbl !mt-0">AI model (NVIDIA NIM)</label>
+        <NimSelect nim={nim} value={settings.nimModel} onChange={setNimModel} />
+        <label className="lbl">Your idea</label>
         <textarea className="inp min-h-[110px] resize-y" value={idea} onChange={(e) => setIdea(e.target.value)} placeholder="e.g. A lone swordsman crosses a ruined city to face a masked sorcerer at dawn…" />
         <label className="lbl">Scenes: <span className="text-white">{count}</span></label>
         <input type="range" min={2} max={12} value={count} onChange={(e) => setCount(Number(e.target.value))} className="w-full" />
         <ConfigFields models={models} cfg={cfg} setCfg={setCfg} showDuration={false} />
         <div className="mt-3 rounded-xl border border-line bg-panel2/60 p-3">
-          <ImagePicker label="Characters / reference images" value={refs} onChange={setRefs} max={Math.max(caps.maxRefs, 4)} apiKey={settings.revanaKey} onNeedKey={onNeedKey}
-            hint={caps.refs ? "Used in every scene so your characters stay consistent. You can also choose one as a scene's start frame." : "This model has no reference mode, but you can still use a photo as a scene's start frame."} />
+          <ImagePicker kinds={kinds} label="Characters / reference files" value={refs} onChange={setRefs} max={Math.max(caps.maxRefs, 4) + 4} apiKey={settings.revanaKey} onNeedKey={onNeedKey}
+            hint={caps.refs ? "Used in every scene so characters stay consistent. You can also pick one as a scene's start frame." : "This model has no reference mode, but a photo can still be a scene's start frame."} />
           <label className={`mt-3 flex items-start gap-2 text-xs ${canChain ? "text-white/70" : "text-white/30"}`}>
             <input type="checkbox" className="mt-0.5" checked={chain && canChain} disabled={!canChain} onChange={(e) => setChain(e.target.checked)} />
             <span><b>Chain scenes</b>: last frame of each scene becomes the next scene&apos;s start frame (smoother story, but scenes render one after another).</span>
@@ -141,7 +156,11 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
             <div className="card">
               <input className="inp text-base font-bold" value={story.title} onChange={(e) => setStory((s) => ({ ...s, title: e.target.value }))} />
               {story.characters && <p className="mt-2 text-xs text-white/50"><b className="text-neon">Characters:</b> {story.characters}</p>}
-              <p className="mt-1 text-xs text-white/40">{scenes.length} scenes · {scenes.reduce((a, s) => a + s.duration, 0)}s total</p>
+              <p className="mt-1 text-xs text-white/40">{scenes.length} scenes · {scenes.reduce((a, s) => a + s.duration, 0)}s total · {doneCount}/{scenes.length} ready</p>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-panel2"><div className="h-full bg-gradient-to-r from-neon to-pink transition-all" style={{ width: `${scenes.length ? (doneCount / scenes.length) * 100 : 0}%` }} /></div>
+              <div className="mt-3 flex gap-1.5 text-[10px] font-semibold uppercase tracking-wider">
+                {[["1 Plan", true], ["2 Edit", true], ["3 Generate", running || doneCount > 0], ["4 Merge", !!final || merging]].map(([l, on]) => <span key={l} className={`rounded-full border px-2.5 py-1 ${on ? "border-neon/60 bg-neon/10 text-neon" : "border-line text-white/30"}`}>{l}</span>)}
+              </div>
             </div>
 
             {scenes.map((s, i) => {
@@ -156,7 +175,7 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
                     <select className="inp !w-auto max-w-[44%] !py-1.5 text-xs" value={s.start || "auto"} onChange={(e) => edit(s.id, { start: e.target.value })} disabled={x.status === "running"} title="Start frame for this scene">
                       <option value="auto">Start: auto</option>
                       <option value="none">Start: text only</option>
-                      {refs.map((r, k) => <option key={r.id} value={r.id}>Start: image {k + 1}</option>)}
+                      {refImgs.map((r, k) => <option key={r.id} value={r.id}>Start: image {k + 1}</option>)}
                     </select>
                     <div className="ml-auto flex gap-1">
                       <button className="btn-ghost !p-2" onClick={() => move(i, -1)} disabled={i === 0 || running} aria-label="Move up"><ArrowUp size={14} /></button>
@@ -166,6 +185,7 @@ export default function Agent({ settings, models, cfg, setCfg, onNeedKey, onSave
                   </div>
                   <textarea className="inp min-h-[84px] resize-y text-xs" value={s.prompt} onChange={(e) => { edit(s.id, { prompt: e.target.value }); if (x.status === "done") { patchSt(s.id, { status: "idle" }); delete blobs.current[s.id]; setFinal(null); } }} disabled={x.status === "running"} />
                   <div className="mt-2 flex items-center gap-2 text-xs">
+                    <button className="btn-ghost !px-2.5 !py-1.5 text-xs" onClick={() => aiRewrite(s)} disabled={running || x.status === "running" || rewriting === s.id}>{rewriting === s.id ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} AI rewrite</button>
                     {x.status === "running" && <span className="flex items-center gap-1.5 text-neon"><Loader2 className="animate-spin" size={14} />{x.msg || "starting"}…</span>}
                     {x.status === "done" && <span className="flex items-center gap-1.5 text-lime"><CheckCircle2 size={14} />Ready</span>}
                     {x.status === "error" && <span className="flex items-center gap-1.5 text-pink"><AlertTriangle size={14} />{x.msg}</span>}
