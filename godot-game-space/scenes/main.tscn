@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/systems/upscaler_manager.gd" id="2_up"]
@@ -8,6 +8,8 @@
 [ext_resource type="Script" path="res://scripts/ui/telemetry_hud.gd" id="6_hud"]
 [ext_resource type="Script" path="res://scripts/ui/game_space_sidebar.gd" id="7_side"]
 [ext_resource type="Script" path="res://scripts/ui/booster_entry_animation.gd" id="8_intro"]
+[ext_resource type="Script" path="res://scripts/ui/magic_light.gd" id="9_light"]
+[ext_resource type="Script" path="res://scripts/ui/air_triggers.gd" id="10_trig"]
 
 [node name="Main" type="Node"]
 script = ExtResource("1_main")
@@ -49,6 +51,22 @@ script = ExtResource("6_hud")
 layout_mode = 0
 offset_top = 6.0
 theme_override_font_sizes/font_size = 18
+
+[node name="MagicLight" type="Control" parent="UiLayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("9_light")
+
+[node name="AirTriggers" type="Control" parent="UiLayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("10_trig")
 
 [node name="Sidebar" type="Control" parent="UiLayer"]
 layout_mode = 3

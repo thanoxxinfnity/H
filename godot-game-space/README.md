@@ -72,6 +72,18 @@ EIRTeam.FFmpeg GDExtension (class `FFmpegVideoStream`, auto-detected) or a sprit
 Without that the drawer says so and the procedural intro is used. Easiest path: generate with a provider that can
 return a spritesheet, or convert to `.ogv` (`ffmpeg -i in.mp4 -c:v libtheora -q:v 7 -an out.ogv`) and drop it in the cache folder.
 
+## 4b. GT-style aggressive gaming features
+* **GT Mode:** Eco 30 / Balanced 60 / Performance (up to 90) / X-Boost (display max, up to 144 FPS cap) + auto thermal guard
+  (drops to Balanced at 43 C) + Clean RAM.
+* **Cyber Light:** animated RGB border strip (Cyan / Magenta / Rainbow / Red alert / Cyber duo); turns red when the phone is hot.
+* **Air Triggers:** two on-screen shoulder pads (upper corners); each injects a touch at the spot you map with *Map L / Map R*; hold and multi-touch work.
+* **Cooling & charging:** thermal guard, bypass-charging toggle (needs the Android plugin, hardware specific).
+* **HUD:** FPS, frame time, ping (HTTP 204 probe), battery temp, session and total play time.
+* **Intro:** armor plates slide open, cooling turbines spin up with the CPU dial, RGB border lights up, ignition burst.
+These are modelled on the publicly known feature set of gaming phones in the GT class. They are not a copy of any vendor's
+firmware (proprietary) and I do not know the unreleased GT 50 Pro's feature list, so "same to same" is not possible; tell me
+specific features and I will add them.
+
 ## 5. What is real and what needs an Android plugin
 Works in-engine: FPS/frame-time, FPS cap modes, intro, drawer, CAS upscaler, software brightness lock, screenshot,
 JPG-sequence screen capture (15 fps, 20 s cap), in-app notification suppression, API client.

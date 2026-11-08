@@ -30,6 +30,7 @@ var _playing := false
 var _cpu_target := 0.92
 var _gpu_target := 0.88
 var _freed_text := ""
+var _clock := 0.0
 
 func _set_scan(v: float) -> void: scan = v; queue_redraw()
 func _set_flash(v: float) -> void: flash = v; queue_redraw()
@@ -89,8 +90,9 @@ func play(media_path := "") -> void:
 		_ember.emitting = true).set_delay(1.0)
 	s.tween_callback(_set_status.bind("BOOST ENGAGED")).set_delay(0.7)
 
-func _process(_dt: float) -> void:
+func _process(dt: float) -> void:
 	if _playing:
+		_clock += dt
 		queue_redraw()
 
 func _set_status(text: String) -> void:
@@ -191,6 +193,9 @@ func _draw() -> void:
 		_draw_grid(s)
 	else:
 		draw_rect(Rect2(Vector2.ZERO, s), Color(0, 0, 0, 0.35))
+	_draw_turbine(safe)
+	_draw_armor(s)
+	MagicLight.draw_border(self, s, _clock, 4, 0.35 + 0.6 * clampf(cpu, 0.0, 1.0), 6.0)
 	# scan line + trailing glow
 	var y := s.y * scan
 	if scan > 0.0 and scan < 1.0:
@@ -266,3 +271,32 @@ func _draw_ram(rect: Rect2) -> void:
 		draw_rect(Rect2(rect.position.x + i * cw + 1.0, rect.position.y, cw - 2.0, rect.size.y), Color(col, 0.85 if filled else a))
 	var font := ThemeDB.fallback_font
 	draw_string(font, rect.position + Vector2(0, rect.size.y + 20.0), "RAM", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 1, 0.7))
+
+## Spinning cooling-turbine rings behind the dials; they speed up as the CPU dial rises.
+func _draw_turbine(safe: Rect2) -> void:
+	var c := safe.get_center()
+	var base := minf(safe.size.x, safe.size.y) * 0.5
+	var spin := _clock * (1.0 + 7.0 * cpu)
+	for ring in 3:
+		var r := base * (0.55 + 0.22 * ring)
+		var dir := 1.0 if ring % 2 == 0 else -1.0
+		var col := NEON if ring != 1 else PINK
+		for seg in 14:
+			var a0 := spin * dir * (0.6 + 0.25 * ring) + seg * TAU / 14.0
+			draw_arc(c, r, a0, a0 + TAU / 14.0 * 0.58, 8, Color(col, 0.16 + 0.34 * cpu), 3.0 + ring, true)
+	draw_circle(c, base * 0.12 * (0.6 + cpu), Color(NEON, 0.10 + 0.25 * cpu))
+
+## Two heavy armor plates that start closed and slide apart as the scan line sweeps down.
+func _draw_armor(s: Vector2) -> void:
+	var open := smoothstep(0.08, 0.55, scan)
+	if open >= 1.0:
+		return
+	var h := s.y * 0.5 * (1.0 - open)
+	var steel := Color(0.05, 0.07, 0.11)
+	var top := PackedVector2Array([Vector2(0, 0), Vector2(s.x, 0), Vector2(s.x, h * 0.9), Vector2(s.x * 0.5, h), Vector2(0, h * 0.9)])
+	var bot := PackedVector2Array([Vector2(0, s.y), Vector2(s.x, s.y), Vector2(s.x, s.y - h * 0.9), Vector2(s.x * 0.5, s.y - h), Vector2(0, s.y - h * 0.9)])
+	draw_colored_polygon(top, steel)
+	draw_colored_polygon(bot, steel)
+	var edge := Color(NEON, 0.9 * (1.0 - open))
+	draw_polyline(PackedVector2Array([top[4], top[3], top[2]]), edge, 3.0, true)
+	draw_polyline(PackedVector2Array([bot[4], bot[3], bot[2]]), Color(PINK, 0.9 * (1.0 - open)), 3.0, true)

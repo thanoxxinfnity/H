@@ -16,13 +16,22 @@ var battery_pct := -1
 var cpu_mhz := -1
 var cpu_load := 0.0 # 0..1, current frequency vs. the highest max frequency
 var ram_used := 0.0 # 0..1
+var ping_ms := -1
+var session_seconds := 0.0
 var history: PackedFloat32Array = PackedFloat32Array()
 
 var _acc := 0.0
+var _ping_acc := 5.0
+var _ping_t0 := 0
+var _ping_req := HTTPRequest.new()
+var _save_acc := 0.0
 var _hist_acc := 0.0
 var _cpu_max_khz := 0
 
 func _ready() -> void:
+	_ping_req.timeout = 4.0
+	add_child(_ping_req)
+	_ping_req.request_completed.connect(_on_ping)
 	for i in 8:
 		_cpu_max_khz = maxi(_cpu_max_khz, _read_int(CPU_FREQ_MAX % i))
 
@@ -34,6 +43,17 @@ func _process(dt: float) -> void:
 		history.append(float(Engine.get_frames_per_second()))
 		if history.size() > 60:
 			history.remove_at(0)
+	session_seconds += dt
+	_save_acc += dt
+	if _save_acc >= 60.0:
+		_save_acc = 0.0
+		Settings.playtime_total += 60.0
+		Settings.save_settings()
+	_ping_acc += dt
+	if _ping_acc >= 6.0 and _ping_req.get_http_client_status() == HTTPClient.STATUS_DISCONNECTED:
+		_ping_acc = 0.0
+		_ping_t0 = Time.get_ticks_msec()
+		_ping_req.request("https://www.gstatic.com/generate_204", PackedStringArray(), HTTPClient.METHOD_HEAD)
 	_acc += dt
 	if _acc < 0.5:
 		return
@@ -69,3 +89,10 @@ func free_ram_mb() -> float:
 	var mem := OS.get_memory_info()
 	var avail: int = mem.get("available", -1)
 	return avail / 1048576.0 if avail >= 0 else -1.0
+
+func _on_ping(result: int, _code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
+	ping_ms = Time.get_ticks_msec() - _ping_t0 if result == HTTPRequest.RESULT_SUCCESS else -1
+
+static func format_time(seconds: float) -> String:
+	var t := int(seconds)
+	return "%d:%02d:%02d" % [t / 3600, (t / 60) % 60, t % 60]

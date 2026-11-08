@@ -13,6 +13,7 @@ const NEON := Color(0.0, 0.95, 1.0)
 var upscaler: UpscalerManager
 var generator: AIVideoGenerator
 var recorder: ScreenRecorder
+var triggers: AirTriggers
 
 var _open := false
 var _side := -1 # -1 = drawer on the left, 1 = on the right
@@ -37,7 +38,10 @@ var _lbl_cpu := Label.new()
 var _lbl_ram := Label.new()
 var _graph := Sparkline.new()
 var _sr_buttons: Array[Button] = []
-var _boost_btn := Button.new()
+var _mode_buttons: Array[Button] = []
+var _bypass_btn := Button.new()
+var _lbl_ping := Label.new()
+var _lbl_time := Label.new()
 var _clean_label := Label.new()
 var _rec_btn := Button.new()
 var _dnd_btn := Button.new()
@@ -50,7 +54,11 @@ var _provider := OptionButton.new()
 var _model := LineEdit.new()
 var _key := LineEdit.new()
 
-func setup(p_upscaler: UpscalerManager, p_generator: AIVideoGenerator, p_recorder: ScreenRecorder) -> void:
+func setup(p_upscaler: UpscalerManager, p_generator: AIVideoGenerator, p_recorder: ScreenRecorder, p_triggers: AirTriggers) -> void:
+	triggers = p_triggers
+	PerformanceBooster.boost_changed.connect(func(_a: bool) -> void:
+		for i in _mode_buttons.size():
+			_mode_buttons[i].set_pressed_no_signal(i == Settings.performance_mode))
 	upscaler = p_upscaler
 	generator = p_generator
 	recorder = p_recorder
@@ -225,7 +233,7 @@ func _build(box: VBoxContainer) -> void:
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 14)
-	for pair in [["FPS", _lbl_fps], ["FRAME", _lbl_ms], ["BATTERY", _lbl_temp], ["CPU", _lbl_cpu], ["RAM USED", _lbl_ram]]:
+	for pair in [["FPS", _lbl_fps], ["FRAME", _lbl_ms], ["BATTERY", _lbl_temp], ["CPU", _lbl_cpu], ["RAM USED", _lbl_ram], ["PING", _lbl_ping], ["SESSION", _lbl_time]]:
 		var cell := VBoxContainer.new()
 		var cap := Label.new()
 		cap.text = pair[0]
@@ -263,16 +271,76 @@ func _build(box: VBoxContainer) -> void:
 		_sr_buttons.append(b)
 	box.add_child(sr)
 
-	# Performance
-	box.add_child(_section("Performance"))
-	_boost_btn = _toggle_button("Performance Boost", "bolt", PerformanceBooster.active, func(on: bool) -> void:
-		PerformanceBooster.apply_mode(2 if on else 1))
-	box.add_child(_boost_btn)
-	var clean := _action_button("Clean RAM", "sweep", _on_clean)
-	box.add_child(clean)
+	# GT mode (performance profiles)
+	box.add_child(_section("GT Mode"))
+	var modes := GridContainer.new()
+	modes.columns = 2
+	modes.add_theme_constant_override("h_separation", 6)
+	modes.add_theme_constant_override("v_separation", 6)
+	var mgroup := ButtonGroup.new()
+	for i in 4:
+		var mb := Button.new()
+		mb.toggle_mode = true
+		mb.button_group = mgroup
+		mb.text = ["Eco · 30", "Balanced · 60", "Performance", "X-Boost"][i]
+		mb.custom_minimum_size = Vector2(0, 52)
+		mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		mb.button_pressed = Settings.performance_mode == i
+		mb.pressed.connect(func() -> void: PerformanceBooster.apply_mode(i))
+		modes.add_child(mb)
+		_mode_buttons.append(mb)
+	box.add_child(modes)
+	box.add_child(_action_button("Clean RAM", "sweep", _on_clean))
 	_clean_label.add_theme_font_size_override("font_size", 12)
 	_clean_label.modulate = Color(0.6, 1.0, 0.4)
 	box.add_child(_clean_label)
+	box.add_child(_toggle_button("Thermal guard (auto-cool above 43 °C)", "thermo", Settings.thermal_guard, func(on: bool) -> void:
+		Settings.thermal_guard = on
+		Settings.save_settings()))
+	_bypass_btn = _toggle_button("Bypass charging", "bolt", Settings.bypass_charging, func(on: bool) -> void:
+		if not PerformanceBooster.set_bypass_charging(on):
+			_clean_label.text = "Bypass charging needs the GameSpaceAndroid plugin (hardware specific)."
+			_bypass_btn.set_pressed_no_signal(false))
+	box.add_child(_bypass_btn)
+
+	# Cyber light
+	box.add_child(_section("Cyber Light"))
+	box.add_child(_toggle_button("Border RGB light", "sparkle", Settings.light_on, func(on: bool) -> void:
+		Settings.light_on = on
+		Settings.save_settings()))
+	var themes := GridContainer.new()
+	themes.columns = 3
+	themes.add_theme_constant_override("h_separation", 6)
+	themes.add_theme_constant_override("v_separation", 6)
+	for i in MagicLight.THEMES.size():
+		var tb := Button.new()
+		tb.text = MagicLight.THEMES[i]
+		tb.custom_minimum_size = Vector2(0, 44)
+		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tb.pressed.connect(func() -> void:
+			Settings.light_theme = i
+			Settings.save_settings())
+		themes.add_child(tb)
+	box.add_child(themes)
+
+	# Air triggers
+	box.add_child(_section("Air Triggers"))
+	box.add_child(_toggle_button("Shoulder triggers on screen", "gauge", Settings.triggers_on, func(on: bool) -> void:
+		Settings.triggers_on = on
+		Settings.save_settings()))
+	var map_row := HBoxContainer.new()
+	map_row.add_theme_constant_override("separation", 6)
+	for i in 2:
+		var mapb := Button.new()
+		mapb.text = "Map L" if i == 0 else "Map R"
+		mapb.custom_minimum_size = Vector2(0, 48)
+		mapb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		mapb.pressed.connect(func() -> void:
+			toggle(false)
+			if triggers != null:
+				triggers.begin_mapping(i))
+		map_row.add_child(mapb)
+	box.add_child(map_row)
 
 	# Tools
 	box.add_child(_section("Game Tools"))
@@ -389,6 +457,8 @@ func _refresh_telemetry() -> void:
 	_lbl_temp.text = ("--" if Telemetry.battery_temp_c < 0.0 else "%.0f °C" % Telemetry.battery_temp_c) + ("" if Telemetry.battery_pct < 0 else "  ·  %d%%" % Telemetry.battery_pct)
 	_lbl_cpu.text = "--" if Telemetry.cpu_mhz < 0 else "%d MHz" % Telemetry.cpu_mhz
 	_lbl_ram.text = "%d%%" % int(Telemetry.ram_used * 100.0)
+	_lbl_ping.text = "--" if Telemetry.ping_ms < 0 else "%d ms" % Telemetry.ping_ms
+	_lbl_time.text = "%s  (total %dh)" % [Telemetry.format_time(Telemetry.session_seconds), int(Settings.playtime_total / 3600.0)]
 	_graph.queue_redraw()
 
 func _sync_sr(mode: int) -> void:

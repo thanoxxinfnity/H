@@ -5,6 +5,9 @@ extends Node
 ## works in-engine, only those system-level parts are skipped.
 
 signal boost_changed(active: bool)
+signal thermal_throttled(temp_c: float)
+
+const THERMAL_LIMIT_C := 43.0
 
 const PLUGIN := "GameSpaceAndroid"
 var active := false
@@ -19,7 +22,10 @@ func call_plugin(method: String, args: Array = []) -> bool:
 	p.callv(method, args)
 	return true
 
-## mode 0 = power saver (30 fps), 1 = balanced (60), 2 = boost (display refresh rate up to 120).
+func _ready() -> void:
+	Telemetry.updated.connect(_thermal_check)
+
+## mode 0 = Eco (30 fps), 1 = Balanced (60), 2 = Performance (90), 3 = X-Boost (display refresh up to 144).
 func apply_mode(mode: int) -> void:
 	Settings.performance_mode = mode
 	var refresh := DisplayServer.screen_get_refresh_rate()
@@ -28,7 +34,8 @@ func apply_mode(mode: int) -> void:
 	match mode:
 		0: Engine.max_fps = 30
 		1: Engine.max_fps = 60
-		_: Engine.max_fps = clampi(int(round(refresh)), 60, 120)
+		2: Engine.max_fps = clampi(int(round(refresh)), 60, 90)
+		_: Engine.max_fps = clampi(int(round(refresh)), 60, 144)
 	active = mode >= 2
 	OS.low_processor_usage_mode = false
 	DisplayServer.screen_set_keep_on(mode >= 1)
@@ -45,3 +52,14 @@ func clean_memory() -> Dictionary:
 	await get_tree().create_timer(0.4).timeout
 	var after := Telemetry.free_ram_mb()
 	return {"freed_mb": maxf(0.0, after - before) if before >= 0.0 and after >= 0.0 else -1.0, "available_mb": after}
+
+## Thermal guard: if the battery gets too hot in Performance/X-Boost, drop back to Balanced.
+func _thermal_check() -> void:
+	if Settings.thermal_guard and Settings.performance_mode >= 2 and Telemetry.battery_temp_c >= THERMAL_LIMIT_C:
+		apply_mode(1)
+		thermal_throttled.emit(Telemetry.battery_temp_c)
+
+func set_bypass_charging(on: bool) -> bool:
+	Settings.bypass_charging = on
+	Settings.save_settings()
+	return call_plugin("setBypassCharging", [on])

@@ -4,13 +4,16 @@ extends Node
 @onready var upscaler: UpscalerManager = $Upscaler
 @onready var generator: AIVideoGenerator = $Generator
 @onready var recorder: ScreenRecorder = $Recorder
+@onready var triggers: AirTriggers = $UiLayer/AirTriggers
 @onready var sidebar: GameSpaceSidebar = $UiLayer/Sidebar
 @onready var intro: BoosterEntryAnimation = $UiLayer/BoosterEntry
 @onready var toast: Label = $UiLayer/SafeArea/HudRoot/Toast
 
 func _ready() -> void:
 	upscaler.add_game_node(DemoGame.new())
-	sidebar.setup(upscaler, generator, recorder)
+	triggers.upscaler = upscaler
+	sidebar.setup(upscaler, generator, recorder, triggers)
+	PerformanceBooster.thermal_throttled.connect(func(t: float) -> void: _show_toast("Cooling: dropped to Balanced (%.0f °C)" % t))
 	sidebar.replay_intro.connect(_play_intro)
 	toast.visible = false
 	var timer := Timer.new()
@@ -27,7 +30,7 @@ func _play_intro() -> void:
 	intro.play(asset if asset != "" and FileAccess.file_exists(asset) else "")
 
 func _on_intro_done() -> void:
-	PerformanceBooster.apply_mode(2 if Settings.boost_on_launch else Settings.performance_mode)
+	PerformanceBooster.apply_mode(3 if Settings.boost_on_launch else Settings.performance_mode)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and sidebar.is_open():
@@ -40,7 +43,10 @@ func _notification(what: int) -> void:
 func _fake_notification() -> void:
 	if Settings.do_not_disturb:
 		return # Do Not Disturb: banners are suppressed while you play
-	toast.text = "New message (demo notification)"
+	_show_toast("New message (demo notification)")
+
+func _show_toast(text: String) -> void:
+	toast.text = text
 	toast.visible = true
 	await get_tree().create_timer(2.5).timeout
 	toast.visible = false
