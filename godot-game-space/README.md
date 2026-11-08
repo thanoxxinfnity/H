@@ -1,9 +1,83 @@
-# Game Space Demo (Godot 4.3)
+# Game Space Booster (Godot 4.3, GL Compatibility, Android landscape)
 
-* **Game Space sidebar** - Vivo-style panel: swipe in from the left edge (or tap the `›` handle). Do Not Disturb, FPS counter, performance modes (30/60/120 FPS cap), upscaler controls, screenshot, video generator.
-* **CAS upscaler** - the game renders in a `SubViewport` at 50-100 % of the window size and is shown through an AMD FidelityFX-style Contrast Adaptive Sharpening shader (`shaders/cas.gdshader`). Add your own game as a child of `CasUpscaler` via `add_game_node()`.
-* **AI video client** - `scripts/video_api_client.gd` talks to the Revana API (`https://api.revana.si/v1`): submit, poll, download. Default model `minimax-h3-free`. Enter your API key in the generator panel; it is stored only in `user://settings.cfg` on the device, never in the project.
+Vivo "Game Space / Ultra Game Mode" style system: cinematic booster intro, edge-swipe glass drawer,
+CAS super-resolution, live telemetry, AI-generated entry animation through a REST API.
 
-Open the folder in Godot 4.3 and press F5. Godot cannot play MP4, so finished videos are saved in `user://videos/` and opened with the system player (double-click in the list). Generated videos are AI-generated; label them as such.
+## 1. Setup
+```bash
+# desktop test
+godot --path godot-game-space            # or open the folder in Godot 4.3 and press F5
 
-Notes: not yet run in the editor (see the chat message). Tweak `Settings` defaults in `autoload/settings.gd`.
+# Android: install the Android export template + JDK 17 + Android SDK (Editor > Editor Settings > Export > Android)
+cp export_presets.cfg.example export_presets.cfg   # or create it via Project > Export
+godot --headless --path godot-game-space --export-debug "Android" build/GameSpace.apk
+adb install -r build/GameSpace.apk
+```
+Project settings already set in `project.godot`: GL Compatibility (also for mobile), sensor-landscape,
+`canvas_items` + `expand` stretch (18:9, 20:9, 21:9 all fill the screen), fractional scaling, MSAA off,
+ETC2/ASTC textures, `emulate_touch_from_mouse` (test touch gestures with the mouse on desktop), 60 FPS cap.
+
+```
+godot-game-space/
+  project.godot
+  autoload/   settings.gd (saved prefs + API key, user://)   telemetry.gd (FPS/ms/temp/CPU/RAM)
+              performance_booster.gd (fps modes, memory clean, Android-plugin bridge)
+  shaders/    cas.gdshader (CAS sharpen)   glass.gdshader (blur + tint + rounded rim)
+  scripts/    main.gd  demo_game.gd
+    systems/  upscaler_manager.gd  ai_video_generator.gd  screen_recorder.gd
+    ui/       game_space_sidebar.gd  booster_entry_animation.gd  telemetry_hud.gd
+              safe_area_container.gd  icons.gd (SVG vector "drawables", rasterised at runtime)
+  scenes/main.tscn
+```
+
+## 2. Scene tree (`scenes/main.tscn`)
+```
+Main (Node)                       main.gd
+├─ Upscaler (Control, full rect)  UpscalerManager  -> SubViewport (game) + TextureRect (CAS material)
+├─ Generator (Node)               AIVideoGenerator
+├─ Recorder (Node)                ScreenRecorder
+└─ UiLayer (CanvasLayer, 10)
+   ├─ SafeArea (MarginContainer)  SafeAreaContainer  (notch / cutout margins)
+   │   └─ HudRoot (Control)
+   │       ├─ TelemetryHud (PanelContainer, top-center)
+   │       └─ Toast (Label)       demo notification, hidden by Do Not Disturb
+   ├─ Sidebar (Control, full rect) GameSpaceSidebar
+   │   ├─ _dim (ColorRect)  _pill_l/_pill_r (edge hints)
+   │   ├─ _drawer (Control) -> _glass (ColorRect, glass.gdshader) -> Margin -> Scroll -> VBox (sections)
+   │   └─ CanvasLayer 90 -> brightness-lock dimmer
+   └─ BoosterEntry (Control, full rect)  BoosterEntryAnimation (AnimationPlayer + CPUParticles2D, built in code)
+```
+
+## 3. How the pieces connect
+* `main.gd` calls `sidebar.setup(upscaler, generator, recorder)`; the drawer buttons call `UpscalerManager.set_mode()`
+  (Off 100 % / Balanced 77 % / Ultra Performance 59 % render scale, CAS sharpness 0 / .55 / .85),
+  `PerformanceBooster.apply_mode()` (30 / 60 / up to 120 FPS cap, keep-screen-on, plugin hook) and `ScreenRecorder`.
+* Put your real game under the upscaler: `upscaler.add_game_node(my_game_scene.instantiate())`.
+  Input the UI does not use is forwarded into the SubViewport automatically (positions rescaled).
+* Anything in group `cleanable` that has `clean_up()` is called by **Clean RAM**.
+* Edge swipe: touch starts within 40 px of the left/right border in the **upper half** of the screen and moves
+  70 px inward -> drawer opens from that side; swipe back outward, tap the dimmed game, or Android Back closes it.
+  The SceneTree is never paused.
+* Intro: `BoosterEntryAnimation.play(path)`; with a cached AI clip it plays behind the HUD, otherwise (API offline,
+  unsupported format, no key) the procedural version runs. Tap after 0.8 s to skip.
+
+## 4. AI video / animation API (`AIVideoGenerator.gd`)
+Providers: `revana` (tested), `replicate`, `luma` (written from their public docs, **not tested live**).
+`Authorization: Bearer <key>`; create task -> poll every 4 s (20 min max) -> stream the file to
+`user://cache/animations/<provider>_<model>_<prompthash>.<ext>` (same prompt = cache hit, no cost).
+Set the key in the drawer; it is saved only in `user://settings.cfg` on the device.
+
+**Playback limits (important):** Godot 4.3 decodes only Ogg Theora (`.ogv`) natively. MP4/WebM results need the
+EIRTeam.FFmpeg GDExtension (class `FFmpegVideoStream`, auto-detected) or a spritesheet (png/webp, 4x4 by default).
+Without that the drawer says so and the procedural intro is used. Easiest path: generate with a provider that can
+return a spritesheet, or convert to `.ogv` (`ffmpeg -i in.mp4 -c:v libtheora -q:v 7 -an out.ogv`) and drop it in the cache folder.
+
+## 5. What is real and what needs an Android plugin
+Works in-engine: FPS/frame-time, FPS cap modes, intro, drawer, CAS upscaler, software brightness lock, screenshot,
+JPG-sequence screen capture (15 fps, 20 s cap), in-app notification suppression, API client.
+Needs the optional Android plugin singleton `GameSpaceAndroid` (methods `setSustainedPerformance(bool)`,
+`trimMemory()`, `setDnd(bool)`, `setBrightness(float)`, `startScreenRecord()`, `stopScreenRecord()`); without it those calls
+are skipped silently. Battery temperature and CPU frequency come from `/sys` and are only readable on some devices (shown as `--` otherwise).
+Not verified: this was written without a Godot editor/device available, only syntax-checked with gdparse. Run it and report any error text.
+
+Generated videos are AI-generated; label them as such.

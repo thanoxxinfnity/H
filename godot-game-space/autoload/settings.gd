@@ -1,16 +1,24 @@
 extends Node
-## Persistent user settings (stored in user://settings.cfg, never in the project files).
+## Persistent user settings in user://settings.cfg (never in the project files, so API keys stay on the device).
 
 const PATH := "user://settings.cfg"
+const PROPS := [
+	"api_key", "api_provider", "api_model", "sr_mode", "performance_mode", "do_not_disturb",
+	"show_telemetry", "brightness_lock", "brightness_value", "entry_asset", "boost_on_launch", "entry_prompt",
+]
 
 var api_key := ""
-var model := "minimax-h3-free"
-var cas_enabled := true
-var cas_sharpness := 0.6
-var render_scale := 0.75
-var performance_mode := 1 # 0 = power saver (30 fps), 1 = balanced (60), 2 = ultra (120)
+var api_provider := "revana" # revana | replicate | luma
+var api_model := "minimax-h3-free"
+var sr_mode := 1 # 0 = off, 1 = balanced, 2 = ultra performance
+var performance_mode := 1 # 0 = power saver, 1 = balanced, 2 = boost
 var do_not_disturb := false
-var show_fps := true
+var show_telemetry := true
+var brightness_lock := false
+var brightness_value := 1.0
+var entry_asset := "" # cached AI animation that replaces the procedural intro
+var boost_on_launch := true
+var entry_prompt := "Cinematic neon nitro vortex boost entry animation, 60fps loop, dark cyberpunk theme"
 
 func _ready() -> void:
 	load_settings()
@@ -19,23 +27,12 @@ func load_settings() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(PATH) != OK:
 		return
-	api_key = cfg.get_value("video", "api_key", api_key)
-	model = cfg.get_value("video", "model", model)
-	cas_enabled = cfg.get_value("display", "cas_enabled", cas_enabled)
-	cas_sharpness = cfg.get_value("display", "cas_sharpness", cas_sharpness)
-	render_scale = cfg.get_value("display", "render_scale", render_scale)
-	performance_mode = cfg.get_value("space", "performance_mode", performance_mode)
-	do_not_disturb = cfg.get_value("space", "do_not_disturb", do_not_disturb)
-	show_fps = cfg.get_value("space", "show_fps", show_fps)
+	for p in PROPS:
+		if cfg.has_section_key("s", p):
+			set(p, cfg.get_value("s", p))
 
 func save_settings() -> void:
 	var cfg := ConfigFile.new()
-	cfg.set_value("video", "api_key", api_key)
-	cfg.set_value("video", "model", model)
-	cfg.set_value("display", "cas_enabled", cas_enabled)
-	cfg.set_value("display", "cas_sharpness", cas_sharpness)
-	cfg.set_value("display", "render_scale", render_scale)
-	cfg.set_value("space", "performance_mode", performance_mode)
-	cfg.set_value("space", "do_not_disturb", do_not_disturb)
-	cfg.set_value("space", "show_fps", show_fps)
+	for p in PROPS:
+		cfg.set_value("s", p, get(p))
 	cfg.save(PATH)

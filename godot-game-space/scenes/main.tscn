@@ -1,6 +1,66 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/systems/upscaler_manager.gd" id="2_up"]
+[ext_resource type="Script" path="res://scripts/systems/ai_video_generator.gd" id="3_gen"]
+[ext_resource type="Script" path="res://scripts/systems/screen_recorder.gd" id="4_rec"]
+[ext_resource type="Script" path="res://scripts/ui/safe_area_container.gd" id="5_safe"]
+[ext_resource type="Script" path="res://scripts/ui/telemetry_hud.gd" id="6_hud"]
+[ext_resource type="Script" path="res://scripts/ui/game_space_sidebar.gd" id="7_side"]
+[ext_resource type="Script" path="res://scripts/ui/booster_entry_animation.gd" id="8_intro"]
 
 [node name="Main" type="Node"]
 script = ExtResource("1_main")
+
+[node name="Upscaler" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_up")
+
+[node name="Generator" type="Node" parent="."]
+script = ExtResource("3_gen")
+
+[node name="Recorder" type="Node" parent="."]
+script = ExtResource("4_rec")
+
+[node name="UiLayer" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="SafeArea" type="MarginContainer" parent="UiLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("5_safe")
+
+[node name="HudRoot" type="Control" parent="UiLayer/SafeArea"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="TelemetryHud" type="PanelContainer" parent="UiLayer/SafeArea/HudRoot"]
+layout_mode = 0
+script = ExtResource("6_hud")
+
+[node name="Toast" type="Label" parent="UiLayer/SafeArea/HudRoot"]
+layout_mode = 0
+offset_top = 6.0
+theme_override_font_sizes/font_size = 18
+
+[node name="Sidebar" type="Control" parent="UiLayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("7_side")
+
+[node name="BoosterEntry" type="Control" parent="UiLayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("8_intro")

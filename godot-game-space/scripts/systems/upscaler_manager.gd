@@ -1,20 +1,28 @@
-class_name CasUpscaler
+class_name UpscalerManager
 extends Control
-## Renders the game into a SubViewport at (window size x render_scale), then shows it full screen
-## through the CAS shader. Add game content with `add_game_node()`.
+## Spatial super-resolution for the whole game: the game renders in a SubViewport at a fraction of the
+## screen resolution and is shown full screen through the CAS (contrast adaptive sharpening) shader.
+## Less pixels to shade = lower GPU load and heat; the sharpening hides most of the lost detail.
 
+signal mode_changed(mode: int)
+
+const MODES := [
+	{"name": "Off", "scale": 1.0, "sharp": 0.0},
+	{"name": "Balanced", "scale": 0.77, "sharp": 0.55},
+	{"name": "Ultra Performance", "scale": 0.59, "sharp": 0.85},
+]
+
+var mode := 1
 var _viewport := SubViewport.new()
 var _view := TextureRect.new()
 var _material := ShaderMaterial.new()
-var _enabled := true
-var _scale := 0.75
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_viewport.transparent_bg = false
+	_viewport.msaa_2d = Viewport.MSAA_DISABLED
 	_viewport.handle_input_locally = false
-	_viewport.gui_disable_input = false
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(_viewport)
 
@@ -28,25 +36,34 @@ func _ready() -> void:
 	add_child(_view)
 
 	get_tree().root.size_changed.connect(_resize)
-	apply(Settings.cas_enabled, Settings.cas_sharpness, Settings.render_scale)
+	set_mode(Settings.sr_mode, false)
 
 func add_game_node(node: Node) -> void:
 	_viewport.add_child(node)
 
-func apply(enabled: bool, sharpness: float, render_scale: float) -> void:
-	_enabled = enabled
-	_scale = clampf(render_scale, 0.5, 1.0)
-	_material.set_shader_parameter("sharpness", clampf(sharpness, 0.0, 1.0))
-	# With CAS off the viewport is shown 1:1 without any sharpening (and at full resolution).
-	_view.material = _material if _enabled else null
+func get_game_viewport() -> SubViewport:
+	return _viewport
+
+func set_mode(new_mode: int, save := true) -> void:
+	mode = clampi(new_mode, 0, MODES.size() - 1)
+	var m: Dictionary = MODES[mode]
+	_material.set_shader_parameter("sharpness", m.sharp)
+	_view.material = null if mode == 0 else _material
 	_resize()
+	if save:
+		Settings.sr_mode = mode
+		Settings.save_settings()
+	mode_changed.emit(mode)
+
+func render_size() -> Vector2i:
+	return _viewport.size
 
 func _resize() -> void:
 	var win := Vector2(get_tree().root.size)
-	var s := _scale if _enabled else 1.0
+	var s: float = MODES[mode].scale
 	_viewport.size = Vector2i(maxi(1, int(win.x * s)), maxi(1, int(win.y * s)))
 
-## The game lives in a SubViewport, so forward input the UI did not use (mouse positions are rescaled).
+## The game lives in a SubViewport, so forward input the UI did not use (positions are rescaled).
 func _unhandled_input(event: InputEvent) -> void:
 	var ev := event.duplicate() as InputEvent
 	var ratio := float(_viewport.size.x) / maxf(1.0, get_viewport_rect().size.x)
