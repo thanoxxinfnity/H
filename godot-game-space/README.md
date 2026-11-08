@@ -90,6 +90,6 @@ JPG-sequence screen capture (15 fps, 20 s cap), in-app notification suppression,
 Needs the optional Android plugin singleton `GameSpaceAndroid` (methods `setSustainedPerformance(bool)`,
 `trimMemory()`, `setDnd(bool)`, `setBrightness(float)`, `startScreenRecord()`, `stopScreenRecord()`); without it those calls
 are skipped silently. Battery temperature and CPU frequency come from `/sys` and are only readable on some devices (shown as `--` otherwise).
-Not verified: this was written without a Godot editor/device available, only syntax-checked with gdparse. Run it and report any error text.
+Verified with Godot 4.3 stable (headless import, then a real GL Compatibility run under Xvfb/llvmpipe): no script errors; intro, glass drawer, edge-swipe open, telemetry, Air Triggers, cyber light and the API client error path were run (`tests/smoke.tscn`, `tests/api_test.tscn`). Not verified on a real Android phone (touch feel, sysfs temperature, performance on 4 GB devices) and not tested: a successful AI generation (the free model needs a top-up).
 
 Generated videos are AI-generated; label them as such.

@@ -233,6 +233,7 @@ func _build(box: VBoxContainer) -> void:
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 10)
 	for pair in [["FPS", _lbl_fps], ["FRAME", _lbl_ms], ["BATTERY", _lbl_temp], ["CPU", _lbl_cpu], ["RAM USED", _lbl_ram], ["PING", _lbl_ping], ["SESSION", _lbl_time]]:
 		var cell := VBoxContainer.new()
 		var cap := Label.new()
