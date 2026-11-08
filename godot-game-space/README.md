@@ -98,3 +98,11 @@ are skipped silently. Battery temperature and CPU frequency come from `/sys` and
 Verified with Godot 4.3 stable (headless import, then a real GL Compatibility run under Xvfb/llvmpipe): no script errors; intro, glass drawer, edge-swipe open, telemetry, Air Triggers, cyber light and the API client error path were run (`tests/smoke.tscn`, `tests/api_test.tscn`). Not verified on a real Android phone (touch feel, sysfs temperature, performance on 4 GB devices) and not tested: a successful AI generation (the free model needs a top-up).
 
 Generated videos are AI-generated; label them as such.
+
+## 6. Auto game detection (Game Space home)
+`autoload/game_scanner.gd` fills the home by itself: on start, every 25 s and whenever the app comes back to the foreground
+(e.g. after installing from the Play Store) it asks Android for launchable apps and keeps the ones that are games:
+Android's own game category/flag, a list of well-known packages (Free Fire / MAX, BGMI, PUBG, Minecraft, COD Mobile, Genshin ...),
+and name keywords. New game -> tile appears; uninstalled -> tile disappears; a tile you remove with x stays removed.
+The in-app demo "arena" and the upscaler/air-trigger/recorder code were moved to `scripts/optional/` (they only make sense for a game
+rendered by Godot itself, not for other apps) and are no longer wired in.

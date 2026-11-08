@@ -15,6 +15,7 @@ run/max_fps=60
 Settings="*res://autoload/settings.gd"
 Telemetry="*res://autoload/telemetry.gd"
 AndroidBridge="*res://autoload/android_bridge.gd"
+GameScanner="*res://autoload/game_scanner.gd"
 PerformanceBooster="*res://autoload/performance_booster.gd"
 
 [display]

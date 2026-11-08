@@ -54,6 +54,21 @@ func list_launchable_apps() -> Array:
 	out.sort_custom(func(a, b) -> bool: return str(a.label).naturalnocasecmp_to(str(b.label)) < 0)
 	return out
 
+## True when Android itself classifies the app as a game: ApplicationInfo.category == CATEGORY_GAME (0) or
+## the legacy FLAG_IS_GAME bit. The fields are read through java.lang.reflect because GDScript cannot touch Java fields.
+func is_game(pkg: String) -> bool:
+	if not available:
+		return false
+	var info = _pm.getApplicationInfo(pkg, 0)
+	if info == null:
+		return false
+	var cls = info.getClass()
+	var cat: int = cls.getField("category").getInt(info)
+	if cat == 0:
+		return true
+	var flags: int = cls.getField("flags").getInt(info)
+	return (flags & 0x02000000) != 0 # FLAG_IS_GAME
+
 func launch_package(pkg: String) -> bool:
 	if not available:
 		return false

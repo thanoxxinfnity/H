@@ -5,7 +5,7 @@ const PATH := "user://settings.cfg"
 const PROPS := [
 	"api_key", "api_provider", "api_model", "sr_mode", "performance_mode", "do_not_disturb",
 	"show_telemetry", "brightness_lock", "brightness_value", "entry_asset", "boost_on_launch", "entry_prompt",
-	"light_on", "light_theme", "triggers_on", "trigger_l", "trigger_r", "thermal_guard", "bypass_charging", "playtime_total", "games",
+	"light_on", "light_theme", "triggers_on", "trigger_l", "trigger_r", "thermal_guard", "bypass_charging", "playtime_total", "games", "ignored",
 ]
 
 var api_key := ""
@@ -27,7 +27,8 @@ var trigger_r := Vector2(0.78, 0.72)
 var thermal_guard := true
 var bypass_charging := false
 var playtime_total := 0.0 # seconds
-var games: Array = [] # [{package, label}] shown in the Game Space home
+var games: Array = [] # [{package, label, auto}] shown in the Game Space home (auto = found by the scanner)
+var ignored: Array = [] # packages the user removed; the scanner will not add them again
 var entry_prompt := "Cinematic neon nitro vortex boost entry animation, 60fps loop, dark cyberpunk theme"
 
 func _ready() -> void:

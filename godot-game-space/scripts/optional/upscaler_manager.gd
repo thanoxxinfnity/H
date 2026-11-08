@@ -26,7 +26,7 @@ func _ready() -> void:
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(_viewport)
 
-	_material.shader = load("res://shaders/cas.gdshader")
+	_material.shader = load("res://scripts/optional/cas.gdshader")
 	_view.texture = _viewport.get_texture()
 	_view.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_view.stretch_mode = TextureRect.STRETCH_SCALE

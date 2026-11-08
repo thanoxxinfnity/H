@@ -5,16 +5,12 @@ extends Control
 ## ever pauses the SceneTree.
 
 signal replay_intro
-signal go_home
 
 const EDGE_PX := 40.0 # width of the touch zone along each border
 const OPEN_DX := 70.0 # inward travel needed to open
 const NEON := Color(1.0, 0.12, 0.24) # red accent (name kept)
 
-var upscaler: UpscalerManager
 var generator: AIVideoGenerator
-var recorder: ScreenRecorder
-var triggers: AirTriggers
 
 var _open := false
 var _side := -1 # -1 = drawer on the left, 1 = on the right
@@ -41,13 +37,11 @@ var _graph := Sparkline.new()
 var _g_fps := RingGauge.new()
 var _g_cpu := RingGauge.new()
 var _g_ram := RingGauge.new()
-var _sr_buttons: Array[Button] = []
 var _mode_buttons: Array[Button] = []
 var _bypass_btn := Button.new()
 var _lbl_ping := Label.new()
 var _lbl_time := Label.new()
 var _clean_label := Label.new()
-var _rec_btn := Button.new()
 var _dnd_btn := Button.new()
 var _bright_btn := Button.new()
 var _bright_slider := HSlider.new()
@@ -58,20 +52,14 @@ var _provider := OptionButton.new()
 var _model := LineEdit.new()
 var _key := LineEdit.new()
 
-func setup(p_upscaler: UpscalerManager, p_generator: AIVideoGenerator, p_recorder: ScreenRecorder, p_triggers: AirTriggers) -> void:
-	triggers = p_triggers
+func setup(p_generator: AIVideoGenerator) -> void:
+	generator = p_generator
 	PerformanceBooster.boost_changed.connect(func(_a: bool) -> void:
 		for i in _mode_buttons.size():
 			_mode_buttons[i].set_pressed_no_signal(i == Settings.performance_mode))
-	upscaler = p_upscaler
-	generator = p_generator
-	recorder = p_recorder
-	upscaler.mode_changed.connect(_sync_sr)
-	_sync_sr(upscaler.mode)
 	generator.progress.connect(func(_stage: String, detail: String) -> void: _gen_status.text = detail)
 	generator.asset_ready.connect(_on_asset_ready)
 	generator.failed.connect(_on_gen_failed)
-	recorder.state_changed.connect(_on_rec_state)
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -274,25 +262,6 @@ func _build(box: VBoxContainer) -> void:
 		Telemetry.updated.emit())
 	box.add_child(tele_toggle)
 
-	# Super resolution
-	box.add_child(_section("Super Resolution (CAS)"))
-	var sr := HBoxContainer.new()
-	sr.add_theme_constant_override("separation", 6)
-	var group := ButtonGroup.new()
-	for i in UpscalerManager.MODES.size():
-		var b := Button.new()
-		b.toggle_mode = true
-		b.button_group = group
-		b.text = ["Off", "Balanced", "Ultra"][i]
-		b.custom_minimum_size = Vector2(0, 52)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.pressed.connect(func() -> void:
-			if upscaler != null:
-				upscaler.set_mode(i))
-		sr.add_child(b)
-		_sr_buttons.append(b)
-	box.add_child(sr)
-
 	# GT mode (performance profiles)
 	box.add_child(_section("GT Mode"))
 	var modes := GridContainer.new()
@@ -345,32 +314,8 @@ func _build(box: VBoxContainer) -> void:
 		themes.add_child(tb)
 	box.add_child(themes)
 
-	# Air triggers
-	box.add_child(_section("Air Triggers"))
-	box.add_child(_toggle_button("Shoulder triggers on screen", "gauge", Settings.triggers_on, func(on: bool) -> void:
-		Settings.triggers_on = on
-		Settings.save_settings()))
-	var map_row := HBoxContainer.new()
-	map_row.add_theme_constant_override("separation", 6)
-	for i in 2:
-		var mapb := Button.new()
-		mapb.text = "Map L" if i == 0 else "Map R"
-		mapb.custom_minimum_size = Vector2(0, 48)
-		mapb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		mapb.pressed.connect(func() -> void:
-			toggle(false)
-			if triggers != null:
-				triggers.begin_mapping(i))
-		map_row.add_child(mapb)
-	box.add_child(map_row)
-
 	# Tools
-	box.add_child(_action_button("Game Space home", "layers", func() -> void:
-		toggle(false)
-		go_home.emit()))
 	box.add_child(_section("Game Tools"))
-	_rec_btn = _toggle_button("Screen Record", "record", false, _on_record)
-	box.add_child(_rec_btn)
 	box.add_child(_action_button("Screenshot", "camera", _on_screenshot))
 	_dnd_btn = _toggle_button("Do Not Disturb", "bell_off", Settings.do_not_disturb, func(on: bool) -> void:
 		Settings.do_not_disturb = on
@@ -490,29 +435,11 @@ func _refresh_telemetry() -> void:
 	_lbl_time.text = "%s  (total %dh)" % [Telemetry.format_time(Telemetry.session_seconds), int(Settings.playtime_total / 3600.0)]
 	_graph.queue_redraw()
 
-func _sync_sr(mode: int) -> void:
-	for i in _sr_buttons.size():
-		_sr_buttons[i].set_pressed_no_signal(i == mode)
-
 func _on_clean() -> void:
 	_clean_label.text = "Cleaning…"
 	var r: Dictionary = await PerformanceBooster.clean_memory()
 	var freed: float = r.get("freed_mb", -1.0)
 	_clean_label.text = "Done. %s" % ("Freed ~%d MB" % int(freed) if freed > 0.5 else "Memory already tidy")
-
-func _on_record(on: bool) -> void:
-	if recorder == null or upscaler == null:
-		return
-	if on:
-		recorder.start(upscaler.get_game_viewport())
-	else:
-		recorder.stop()
-
-func _on_rec_state(recording: bool, info: String) -> void:
-	_rec_btn.set_pressed_no_signal(recording)
-	_rec_btn.text = " " + ("Stop · " + info if recording else "Screen Record")
-	if not recording:
-		_gen_status.text = info
 
 func _on_screenshot() -> void:
 	toggle(false)

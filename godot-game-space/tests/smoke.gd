@@ -8,7 +8,6 @@ func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	if args.size() > 0:
 		out = args[0]
-	Settings.games = [{"package": "com.example.racer", "label": "Sample Racer"}, {"package": "com.example.shooter", "label": "Sample Shooter"}]
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	add_child(main)
 	await get_tree().create_timer(2.0).timeout
@@ -22,11 +21,11 @@ func _ready() -> void:
 	await get_tree().create_timer(0.5).timeout
 	_shot("3_picker")
 	lib._picker.visible = false
-	lib.play_game.emit(GameLibrary.ARENA)
+	lib.play_game.emit(Settings.games[0])
 	await get_tree().create_timer(3.0).timeout
 	_shot("3b_launch_intro")
-	await get_tree().create_timer(4.5).timeout
-	_shot("4_arena")
+	await get_tree().create_timer(5.5).timeout
+	_shot("4_home_after")
 	var t := InputEventScreenTouch.new()
 	t.index = 0
 	t.pressed = true
@@ -46,7 +45,7 @@ func _ready() -> void:
 	Input.parse_input_event(u)
 	await get_tree().create_timer(1.2).timeout
 	_shot("5_drawer")
-	print("SMOKE_DONE sidebar_open=", main.get_node("UiLayer/Sidebar").is_open(), " library_visible=", lib.visible)
+	print("SMOKE_DONE sidebar_open=", main.get_node("UiLayer/Sidebar").is_open(), " games=", Settings.games.size())
 	get_tree().quit()
 
 func _shot(shot_name: String) -> void:

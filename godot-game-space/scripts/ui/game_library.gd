@@ -5,8 +5,6 @@ extends Control
 
 signal play_game(entry: Dictionary)
 
-const ARENA := {"package": "", "label": "ARENA TEST", "builtin": true}
-
 var _grid := GridContainer.new()
 var _picker := Control.new()
 var _search := LineEdit.new()
@@ -17,6 +15,8 @@ var _stats := Label.new()
 var _ring := TextureRect.new()
 var _spin := 0.0
 var _icon_queue: Array = []
+var _notice := Label.new()
+var _empty := Label.new()
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -73,8 +73,16 @@ func _ready() -> void:
 	_stats.add_theme_color_override("font_color", Pal.RED_HOT)
 	tv.add_child(_stats)
 	head.add_child(tv)
+	var scan := Button.new()
+	scan.text = "SCAN"
+	scan.icon = Icons.get_icon("sweep", 32, Pal.TEXT)
+	scan.custom_minimum_size = Vector2(0, 56)
+	scan.pressed.connect(func() -> void:
+		GameScanner.scan()
+		_notice.text = "Scanning installed apps…" if AndroidBridge.available else "Desktop preview: the scanner runs on Android.")
+	head.add_child(scan)
 	var add := Button.new()
-	add.text = "+ ADD GAME"
+	add.text = "+ ADD APP"
 	add.icon = Icons.get_icon("bolt", 36, Pal.TEXT)
 	add.custom_minimum_size = Vector2(0, 56)
 	add.pressed.connect(_open_picker)
@@ -82,11 +90,21 @@ func _ready() -> void:
 	col.add_child(head)
 
 	var hint := Label.new()
-	hint.text = "SWIPE IN FROM THE UPPER-LEFT / UPPER-RIGHT EDGE FOR THE BOOST PANEL"
+	hint.text = "GAMES ARE FOUND AUTOMATICALLY  ·  SWIPE IN FROM THE UPPER-LEFT / UPPER-RIGHT EDGE FOR THE BOOST PANEL"
 	hint.add_theme_font_size_override("font_size", 11)
 	hint.modulate = Pal.MUTED
 	col.add_child(hint)
 
+	_notice.add_theme_font_size_override("font_size", 13)
+	_notice.add_theme_color_override("font_color", Pal.AMBER)
+	col.add_child(_notice)
+	_empty.text = "NO GAMES FOUND YET\nInstall a game (Free Fire, BGMI, Minecraft…) and it appears here by itself."
+	_empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_empty.add_theme_font_size_override("font_size", 18)
+	_empty.modulate = Pal.MUTED
+	_empty.custom_minimum_size = Vector2(0, 120)
+	_empty.visible = false
+	col.add_child(_empty)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -97,6 +115,7 @@ func _ready() -> void:
 	scroll.add_child(_grid)
 
 	_build_picker()
+	GameScanner.games_changed.connect(_on_games_changed)
 	get_tree().root.size_changed.connect(_refresh)
 	Telemetry.updated.connect(_update_stats)
 	_refresh()
@@ -118,9 +137,9 @@ func _refresh() -> void:
 	_grid.columns = maxi(2, int((w - 36.0) / 190.0))
 	for c in _grid.get_children():
 		c.queue_free()
-	_grid.add_child(_tile(ARENA, true))
 	for g in Settings.games:
 		_grid.add_child(_tile(g, false))
+	_empty.visible = Settings.games.is_empty()
 	_icon_queue.clear()
 	for t in _grid.get_children():
 		if t.has_meta("pkg") and str(t.get_meta("pkg")) != "":
@@ -150,7 +169,7 @@ func _tile(entry: Dictionary, builtin: bool) -> Control:
 	v.add_child(top)
 	var icon := TextureRect.new()
 	icon.name = "Icon"
-	icon.texture = Drawables.texture("flame" if builtin else "emblem", 1.0)
+	icon.texture = Drawables.texture("emblem", 1.0)
 	icon.custom_minimum_size = Vector2(84, 84)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -183,8 +202,16 @@ func _load_icons() -> void:
 			t.get_node("VBoxContainer/Icon").texture = tex
 
 func _remove(entry: Dictionary) -> void:
-	Settings.games = Settings.games.filter(func(g) -> bool: return g.package != entry.package)
-	Settings.save_settings()
+	GameScanner.forget(str(entry.package))
+	_refresh()
+
+func _on_games_changed(added: Array, removed: Array) -> void:
+	var parts: Array = []
+	if not added.is_empty():
+		parts.append("NEW GAME: " + ", ".join(added.map(func(g) -> String: return str(g.label))))
+	if not removed.is_empty():
+		parts.append("REMOVED: " + ", ".join(removed.map(func(g) -> String: return str(g.label))))
+	_notice.text = "   ·   ".join(parts)
 	_refresh()
 
 # ---------------------------------------------------------------- add-game picker
@@ -209,7 +236,7 @@ func _build_picker() -> void:
 	panel.add_child(v)
 	var h := HBoxContainer.new()
 	var t := Label.new()
-	t.text = "ADD A GAME"
+	t.text = "ADD ANY APP MANUALLY"
 	t.add_theme_font_size_override("font_size", 22)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(t)
@@ -253,8 +280,7 @@ func _open_picker() -> void:
 		_apps = AndroidBridge.list_launchable_apps()
 	else:
 		_apps = [ # desktop preview only: no installed-app list exists off Android
-			{"package": "com.example.racer", "label": "Sample Racer (desktop preview)"},
-			{"package": "com.example.shooter", "label": "Sample Shooter (desktop preview)"},
+			{"package": "com.example.app", "label": "Sample App (desktop preview)"},
 		]
 	_fill_list()
 
