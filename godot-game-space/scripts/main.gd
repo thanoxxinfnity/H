@@ -2,7 +2,8 @@ extends Node
 ## Composition root: Game Space home (library), Arena test game under the CAS upscaler, edge-swipe boost drawer,
 ## telemetry HUD, air triggers, cyber light and the booster intro.
 
-const BUNDLED_INTRO := "res://assets/entry/booster_entry.ogv"
+const INTRO_FULL := "res://assets/entry/booster_entry.ogv" # 10 s, played when the app opens
+const INTRO_LAUNCH := "res://assets/entry/booster_launch.ogv" # 6 s, played before a game launches
 
 @onready var upscaler: UpscalerManager = $Upscaler
 @onready var generator: AIVideoGenerator = $Generator
@@ -28,11 +29,15 @@ func _ready() -> void:
 
 func _play_intro(target: String) -> void:
 	intro.target_name = target
-	# priority: AI clip you generated in-app > clip bundled at assets/entry/booster_entry.ogv > procedural intro
+	# priority: clip generated in-app > bundled clip > procedural intro
 	var asset := Settings.entry_asset
+	var secs := 8.0
 	if asset == "" or not FileAccess.file_exists(asset):
-		asset = BUNDLED_INTRO if ResourceLoader.exists(BUNDLED_INTRO) else ""
-	intro.play(asset)
+		asset = INTRO_LAUNCH if target != "" else INTRO_FULL
+		secs = 6.0 if target != "" else 10.0
+		if not ResourceLoader.exists(asset):
+			asset = ""
+	intro.play(asset, secs)
 
 func _on_intro_done() -> void:
 	PerformanceBooster.apply_mode(3 if Settings.boost_on_launch else Settings.performance_mode)

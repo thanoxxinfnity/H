@@ -84,6 +84,11 @@ These are modelled on the publicly known feature set of gaming phones in the GT 
 firmware (proprietary) and I do not know the unreleased GT 50 Pro's feature list, so "same to same" is not possible; tell me
 specific features and I will add them.
 
+## 4c. Look and intro (matches the generated clip)
+Intro clips (from the Gemini video) are bundled: `assets/entry/booster_entry.ogv` (10 s, app start) and `booster_launch.ogv` (6 s, before a game
+launches); the live HUD (status, game name, real RAM-freed result, progress) is drawn over them. UI language follows the clip: carbon-fibre
+background, turning turbine ring, neon hexagon-bolt emblem, red/orange segmented gauges. The clip carries Gemini's small sparkle watermark.
+
 ## 5. What is real and what needs an Android plugin
 Works in-engine: FPS/frame-time, FPS cap modes, intro, drawer, CAS upscaler, software brightness lock, screenshot,
 JPG-sequence screen capture (15 fps, 20 s cap), in-app notification suppression, API client.

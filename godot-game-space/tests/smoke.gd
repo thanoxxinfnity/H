@@ -11,9 +11,11 @@ func _ready() -> void:
 	Settings.games = [{"package": "com.example.racer", "label": "Sample Racer"}, {"package": "com.example.shooter", "label": "Sample Shooter"}]
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	add_child(main)
-	await get_tree().create_timer(1.5).timeout
+	await get_tree().create_timer(2.0).timeout
 	_shot("1_intro")
-	await get_tree().create_timer(3.4).timeout
+	await get_tree().create_timer(4.0).timeout
+	_shot("1b_intro_mid")
+	await get_tree().create_timer(5.0).timeout
 	_shot("2_home")
 	var lib: GameLibrary = main.get_node("UiLayer/GameLibrary")
 	lib.call("_open_picker")
@@ -21,7 +23,9 @@ func _ready() -> void:
 	_shot("3_picker")
 	lib._picker.visible = false
 	lib.play_game.emit(GameLibrary.ARENA)
-	await get_tree().create_timer(6.5).timeout
+	await get_tree().create_timer(3.0).timeout
+	_shot("3b_launch_intro")
+	await get_tree().create_timer(4.5).timeout
 	_shot("4_arena")
 	var t := InputEventScreenTouch.new()
 	t.index = 0

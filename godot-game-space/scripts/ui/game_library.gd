@@ -14,6 +14,8 @@ var _list := ItemList.new()
 var _manual := LineEdit.new()
 var _apps: Array = []
 var _stats := Label.new()
+var _ring := TextureRect.new()
+var _spin := 0.0
 var _icon_queue: Array = []
 
 func _ready() -> void:
@@ -24,14 +26,26 @@ func _ready() -> void:
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
-	for art in ["hex_bg", "speed_lines"]:
-		var tr := TextureRect.new()
-		tr.texture = Drawables.texture(art, 2.0)
-		tr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(tr)
+	var carbon := TextureRect.new()
+	carbon.texture = Drawables.texture("carbon", 2.0)
+	carbon.stretch_mode = TextureRect.STRETCH_TILE
+	carbon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	carbon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(carbon)
+	_ring.texture = Drawables.texture("hud_ring", 1.6)
+	_ring.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_ring.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_ring.modulate = Color(1, 1, 1, 0.55)
+	_ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_ring)
+	var vig := TextureRect.new()
+	vig.texture = Drawables.texture("vignette", 2.0)
+	vig.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	vig.stretch_mode = TextureRect.STRETCH_SCALE
+	vig.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vig.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(vig)
 
 	var safe := SafeAreaContainer.new()
 	safe.extra_margin = 18
@@ -43,7 +57,7 @@ func _ready() -> void:
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 12)
 	var logo := TextureRect.new()
-	logo.texture = Drawables.texture("logo_mark", 0.5)
+	logo.texture = Drawables.texture("emblem", 0.75)
 	logo.custom_minimum_size = Vector2(56, 56)
 	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -88,6 +102,12 @@ func _ready() -> void:
 	_refresh()
 	_update_stats()
 
+func _process(dt: float) -> void:
+	if visible:
+		_spin += dt * 0.12
+		_ring.pivot_offset = _ring.size * 0.5
+		_ring.rotation = _spin # the turbine ring from the intro clip keeps turning behind the tiles
+
 func _update_stats() -> void:
 	var free := Telemetry.free_ram_mb()
 	var temp := "--" if Telemetry.battery_temp_c < 0.0 else "%.0f°C" % Telemetry.battery_temp_c
@@ -130,7 +150,7 @@ func _tile(entry: Dictionary, builtin: bool) -> Control:
 	v.add_child(top)
 	var icon := TextureRect.new()
 	icon.name = "Icon"
-	icon.texture = Drawables.texture("flame" if builtin else "logo_mark", 1.5)
+	icon.texture = Drawables.texture("flame" if builtin else "emblem", 1.0)
 	icon.custom_minimum_size = Vector2(84, 84)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED

@@ -38,6 +38,9 @@ var _lbl_temp := Label.new()
 var _lbl_cpu := Label.new()
 var _lbl_ram := Label.new()
 var _graph := Sparkline.new()
+var _g_fps := RingGauge.new()
+var _g_cpu := RingGauge.new()
+var _g_ram := RingGauge.new()
 var _sr_buttons: Array[Button] = []
 var _mode_buttons: Array[Button] = []
 var _bypass_btn := Button.new()
@@ -215,7 +218,7 @@ func _input(event: InputEvent) -> void:
 func _build(box: VBoxContainer) -> void:
 	var head := HBoxContainer.new()
 	var logo := TextureRect.new()
-	logo.texture = Icons.get_icon("bolt", 40, NEON)
+	logo.texture = Drawables.texture("emblem", 0.4)
 	logo.custom_minimum_size = Vector2(30, 30)
 	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -227,10 +230,26 @@ func _build(box: VBoxContainer) -> void:
 	head.add_child(title)
 	head.add_child(_icon_button("close", func() -> void: toggle(false)))
 	box.add_child(head)
+	var bar := TextureRect.new()
+	bar.texture = Drawables.texture("hud_bar", 2.0)
+	bar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bar.stretch_mode = TextureRect.STRETCH_SCALE
+	bar.custom_minimum_size = Vector2(0, 12)
+	box.add_child(bar)
 
 	# Telemetry
 	box.add_child(_section("Telemetry"))
-	_graph.custom_minimum_size = Vector2(0, 64)
+	var gauges := HBoxContainer.new()
+	gauges.add_theme_constant_override("separation", 10)
+	for gg in [_g_fps, _g_cpu, _g_ram]:
+		gg.custom_minimum_size = Vector2(0, 96)
+		gg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		gauges.add_child(gg)
+	_g_fps.caption = "FPS"
+	_g_cpu.caption = "CPU"
+	_g_ram.caption = "RAM"
+	box.add_child(gauges)
+	_graph.custom_minimum_size = Vector2(0, 56)
 	box.add_child(_graph)
 	var grid := GridContainer.new()
 	grid.columns = 2
@@ -459,6 +478,9 @@ func _toggle_button(text: String, icon_name: String, value: bool, cb: Callable) 
 func _refresh_telemetry() -> void:
 	if not _open:
 		return
+	_g_fps.set_value(clampf(Telemetry.fps / 120.0, 0.0, 1.0), str(Telemetry.fps))
+	_g_cpu.set_value(Telemetry.cpu_load, "%d%%" % int(Telemetry.cpu_load * 100.0))
+	_g_ram.set_value(Telemetry.ram_used, "%d%%" % int(Telemetry.ram_used * 100.0))
 	_lbl_fps.text = str(Telemetry.fps)
 	_lbl_ms.text = "%.1f ms" % Telemetry.frame_ms
 	_lbl_temp.text = ("--" if Telemetry.battery_temp_c < 0.0 else "%.0f °C" % Telemetry.battery_temp_c) + ("" if Telemetry.battery_pct < 0 else "  ·  %d%%" % Telemetry.battery_pct)
@@ -556,3 +578,39 @@ class Sparkline extends Control:
 		draw_polyline(pts, Color(1.0, 0.25, 0.3), 2.0, true)
 		var y60 := size.y - 60.0 / top * size.y
 		draw_line(Vector2(0, y60), Vector2(size.x, y60), Color(1, 1, 1, 0.18), 1.0)
+
+## Segmented ring gauge in the style of the intro clip's turbine dials.
+class RingGauge extends Control:
+	var caption := ""
+	var _value := 0.0
+	var _shown := 0.0
+	var _text := "--"
+
+	func set_value(v: float, text: String) -> void:
+		_value = v
+		_text = text
+		queue_redraw()
+
+	func _process(dt: float) -> void:
+		if absf(_shown - _value) > 0.002:
+			_shown = lerpf(_shown, _value, clampf(dt * 8.0, 0.0, 1.0))
+			queue_redraw()
+
+	func _draw() -> void:
+		var r := minf(size.x, size.y) * 0.5 - 8.0
+		var c := size * 0.5
+		var segs := 28
+		var a0 := deg_to_rad(135.0)
+		var span := deg_to_rad(270.0)
+		for i in segs:
+			var t := float(i) / (segs - 1)
+			var ang := a0 + span * t
+			var on := t <= _shown
+			var col := Pal.RED if t < 0.7 else Pal.ORANGE
+			draw_line(c + Vector2.from_angle(ang) * (r - 9.0), c + Vector2.from_angle(ang) * r, Color(col, 0.95) if on else Color(1, 1, 1, 0.12), 3.0)
+		draw_arc(c, r - 14.0, a0, a0 + span, 40, Color(Pal.ORANGE, 0.35), 1.5, true)
+		var f := ThemeDB.fallback_font
+		var w := f.get_string_size(_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+		draw_string(f, Vector2(c.x - w * 0.5, c.y + 6.0), _text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Pal.TEXT)
+		var cw := f.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		draw_string(f, Vector2(c.x - cw * 0.5, c.y + r * 0.62), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Pal.MUTED)

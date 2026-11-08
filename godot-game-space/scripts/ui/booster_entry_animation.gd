@@ -8,7 +8,7 @@ extends Control
 
 signal finished
 
-const LENGTH := 4.2
+const LENGTH := 4.2 # procedural intro length; with a clip it is the clip length
 const NEON := Color(1.0, 0.12, 0.24) # red (name kept)
 const PINK := Color(1.0, 0.42, 0.1) # orange
 const LIME := Color(1.0, 0.8, 0.2)
@@ -31,6 +31,9 @@ var _cpu_target := 0.92
 var _gpu_target := 0.88
 var _freed_text := ""
 var _clock := 0.0
+var _len := LENGTH
+var _anim_name := "boot0"
+var _runs := 0
 var target_name := "" # game being launched, shown under the title
 
 func _set_scan(v: float) -> void: scan = v; queue_redraw()
@@ -48,7 +51,7 @@ func _ready() -> void:
 	gui_input.connect(_on_gui_input)
 
 ## Starts the intro. `media_path` is an optional cached AI animation (see AIVideoGenerator).
-func play(media_path := "") -> void:
+func play(media_path := "", clip_seconds := 8.0) -> void:
 	if _playing:
 		return
 	_playing = true
@@ -61,6 +64,9 @@ func play(media_path := "") -> void:
 		_bg_media = AIVideoGenerator.play_into(self, media_path, true)
 		if _bg_media is CanvasItem:
 			(_bg_media as CanvasItem).show_behind_parent = true # clip behind the HUD that _draw() paints
+	_len = clip_seconds if _bg_media != null else LENGTH
+	_rebuild_animation()
+	_particles.visible = _bg_media == null
 	Engine.max_fps = 60 # lock the intro to 60 FPS
 	_cpu_target = clampf(maxf(Telemetry.cpu_load, 0.0) * 0.35 + 0.62, 0.7, 0.98)
 	_gpu_target = clampf(_cpu_target - 0.05 + randf() * 0.06, 0.7, 0.97)
@@ -68,29 +74,25 @@ func play(media_path := "") -> void:
 	gpu = 0.0
 	ram_sweep = 0.0
 	_freed_text = ""
-	_player.play("boot")
+	_player.play(_anim_name)
 
 	var t := create_tween().set_parallel(true)
 	t.tween_property(self, "cpu", _cpu_target, 1.7).set_delay(0.5).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	t.tween_property(self, "gpu", _gpu_target, 1.7).set_delay(0.8).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	t.tween_property(self, "ram_sweep", 1.0, 1.1).set_delay(1.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
+	var k := _len / LENGTH
 	var s := create_tween()
-	s.tween_callback(_set_status.bind("INITIALIZING CORE")).set_delay(0.3)
-	s.tween_callback(_set_status.bind("CPU / GPU RAMP-UP")).set_delay(0.7)
-	s.tween_callback(_set_status.bind("SWEEPING MEMORY")).set_delay(0.9)
+	s.tween_callback(_set_status.bind("INITIALIZING CORE")).set_delay(0.3 * k)
+	s.tween_callback(_set_status.bind("CPU / GPU RAMP-UP")).set_delay(0.7 * k)
+	s.tween_callback(_set_status.bind("SWEEPING MEMORY")).set_delay(0.9 * k)
 	s.tween_callback(func() -> void:
 		_set_status("IGNITION")
-		_particles.restart()
-		_ember.emitting = true).set_delay(1.0)
-	s.tween_callback(_set_status.bind("BOOST ENGAGED")).set_delay(0.7)
+		if _bg_media == null:
+			_particles.restart()
+			_ember.emitting = true).set_delay(1.0 * k)
+	s.tween_callback(_set_status.bind("BOOST ENGAGED")).set_delay(0.7 * k)
 
-func _process(dt: float) -> void:
-	if _playing:
-		_clock += dt
-		queue_redraw()
-
-## Real result of the RAM clean that runs while the intro plays.
 func set_result(r: Dictionary) -> void:
 	var freed: float = r.get("freed_mb", -1.0)
 	var killed: int = r.get("killed", 0)
@@ -107,7 +109,7 @@ func _set_status(text: String) -> void:
 func _on_gui_input(event: InputEvent) -> void:
 	var tap := event as InputEventScreenTouch
 	if _playing and tap != null and tap.pressed and _player.current_animation_position > 0.8:
-		_player.seek(LENGTH - 0.45, true) # tap to skip: jump to the fade-out
+		_player.seek(maxf(0.0, _len - 0.45), true) # tap to skip: jump to the fade-out
 
 func _on_done() -> void:
 	_playing = false
@@ -120,14 +122,20 @@ func _on_done() -> void:
 
 # ------------------------------------------------------------------ build
 func _build_animation() -> void:
+	var lib := AnimationLibrary.new()
+	_player.add_animation_library("", lib)
+	add_child(_player)
+	_rebuild_animation()
+
+func _rebuild_animation() -> void:
 	var a := Animation.new()
-	a.length = LENGTH
+	a.length = _len
 	var i := a.add_track(Animation.TYPE_VALUE)
 	a.track_set_path(i, ".:modulate:a")
 	a.track_insert_key(i, 0.0, 0.0)
 	a.track_insert_key(i, 0.35, 1.0)
-	a.track_insert_key(i, LENGTH - 0.5, 1.0)
-	a.track_insert_key(i, LENGTH, 0.0)
+	a.track_insert_key(i, _len - 0.5, 1.0)
+	a.track_insert_key(i, _len, 0.0)
 	i = a.add_track(Animation.TYPE_VALUE)
 	a.track_set_path(i, ".:scan")
 	a.track_insert_key(i, 0.0, 0.0)
@@ -140,11 +148,14 @@ func _build_animation() -> void:
 	a.track_insert_key(i, 3.0, 0.0)
 	i = a.add_track(Animation.TYPE_METHOD)
 	a.track_set_path(i, ".")
-	a.track_insert_key(i, LENGTH, {"method": "_on_done", "args": []})
-	var lib := AnimationLibrary.new()
-	lib.add_animation("boot", a)
-	_player.add_animation_library("", lib)
-	add_child(_player)
+	a.track_insert_key(i, _len, {"method": "_on_done", "args": []})
+	var lib := _player.get_animation_library("")
+	_player.stop()
+	if lib.has_animation(_anim_name):
+		lib.remove_animation(_anim_name)
+	_runs += 1
+	_anim_name = "boot%d" % _runs # a fresh name each run: AnimationPlayer keeps the old resource cached otherwise
+	lib.add_animation(_anim_name, a)
 
 func _build_particles() -> void:
 	_particles.one_shot = true
@@ -193,6 +204,9 @@ func _notification(what: int) -> void:
 func _draw() -> void:
 	var s := size
 	var safe := SafeAreaContainer.safe_rect(self)
+	if _bg_media != null:
+		_draw_video_overlay(s, safe)
+		return
 	if _bg_media == null:
 		draw_rect(Rect2(Vector2.ZERO, s), Color(0.03, 0.01, 0.02))
 		draw_texture_rect(Drawables.texture("hex_bg", maxf(1.0, s.x / 640.0)), Rect2(Vector2.ZERO, s), false)
@@ -310,3 +324,23 @@ func _draw_armor(s: Vector2) -> void:
 	var edge := Color(NEON, 0.9 * (1.0 - open))
 	draw_polyline(PackedVector2Array([top[4], top[3], top[2]]), edge, 3.0, true)
 	draw_polyline(PackedVector2Array([bot[4], bot[3], bot[2]]), Color(PINK, 0.9 * (1.0 - open)), 3.0, true)
+
+## With a clip playing, the clip carries the show; only the live facts are drawn over it.
+func _draw_video_overlay(s: Vector2, safe: Rect2) -> void:
+	var font := ThemeDB.fallback_font
+	var band := Rect2(0, s.y - 96.0 - (s.y - safe.end.y), s.x, 96.0 + (s.y - safe.end.y))
+	draw_rect(band, Color(0, 0, 0, 0.5))
+	draw_line(band.position, band.position + Vector2(s.x, 0), Color(PINK, 0.8), 2.0)
+	var x := safe.position.x + 20.0
+	var y := band.position.y + 34.0
+	draw_string(font, Vector2(x, y), _status, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, NEON)
+	if target_name != "":
+		draw_string(font, Vector2(x, y + 30.0), "LAUNCHING: " + target_name.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1, 1, 1, 0.9))
+	if _freed_text != "":
+		var fw := font.get_string_size(_freed_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
+		draw_string(font, Vector2(safe.end.x - fw - 20.0, y), _freed_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, LIME)
+	var bar_w := s.x - 2.0 * (safe.position.x + 20.0)
+	var prog := clampf(_player.current_animation_position / maxf(0.1, _len), 0.0, 1.0)
+	draw_rect(Rect2(safe.position.x + 20.0, band.end.y - 18.0 - (s.y - safe.end.y), bar_w, 4.0), Color(1, 1, 1, 0.15))
+	draw_rect(Rect2(safe.position.x + 20.0, band.end.y - 18.0 - (s.y - safe.end.y), bar_w * prog, 4.0), NEON)
+	MagicLight.draw_border(self, s, _clock, 0, 0.5, 4.0)
