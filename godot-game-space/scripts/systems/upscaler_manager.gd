@@ -41,6 +41,11 @@ func _ready() -> void:
 func add_game_node(node: Node) -> void:
 	_viewport.add_child(node)
 
+## Stops rendering the game while another screen (the home) covers it.
+func set_active(on: bool) -> void:
+	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if on else SubViewport.UPDATE_DISABLED
+	_view.visible = on
+
 func get_game_viewport() -> SubViewport:
 	return _viewport
 

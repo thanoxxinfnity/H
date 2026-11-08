@@ -62,6 +62,10 @@ func _process(dt: float) -> void:
 	var t := _read_int(BATTERY_TEMP)
 	battery_temp_c = t / 10.0 if t > 0 else -1.0
 	battery_pct = _read_int(BATTERY_CAP)
+	if battery_temp_c < 0.0 and AndroidBridge.available:
+		var b := AndroidBridge.battery()
+		battery_temp_c = b.get("temp_c", -1.0)
+		battery_pct = b.get("level", -1)
 	var best := -1
 	for i in 8:
 		best = maxi(best, _read_int(CPU_FREQ % i))

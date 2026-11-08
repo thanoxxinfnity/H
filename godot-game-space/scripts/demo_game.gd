@@ -11,21 +11,21 @@ func _process(dt: float) -> void:
 
 func _draw() -> void:
 	var size := get_viewport().get_visible_rect().size
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.06, 0.11))
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.015, 0.025))
 	var step := maxf(24.0, size.y / 18.0)
 	var x := 0.0
 	while x < size.x:
-		draw_line(Vector2(x, 0), Vector2(x, size.y), Color(0.2, 0.25, 0.4, 0.55), 1.0)
+		draw_line(Vector2(x, 0), Vector2(x, size.y), Color(0.45, 0.08, 0.12, 0.45), 1.0)
 		x += step
 	var y := 0.0
 	while y < size.y:
-		draw_line(Vector2(0, y), Vector2(size.x, y), Color(0.2, 0.25, 0.4, 0.55), 1.0)
+		draw_line(Vector2(0, y), Vector2(size.x, y), Color(0.45, 0.08, 0.12, 0.45), 1.0)
 		y += step
 	for i in 7:
 		var a := _t * (0.6 + i * 0.15) + i
 		var c := size * 0.5 + Vector2(cos(a), sin(a * 1.3)) * Vector2(size.x * 0.32, size.y * 0.28)
 		var r := size.y * (0.03 + i * 0.006)
-		draw_circle(c, r, Color.from_hsv(fmod(0.1 * i + _t * 0.05, 1.0), 0.7, 1.0))
+		draw_circle(c, r, Color.from_hsv(fmod(0.0 + 0.03 * i + _t * 0.01, 0.1), 0.85, 1.0))
 		draw_arc(c, r * 1.6, 0, TAU, 48, Color.WHITE, 1.5, true)
 	var msg := "Swipe in from the upper-left or upper-right edge for Game Space"
 	var fs := int(clampf(size.y * 0.04, 14.0, 28.0))

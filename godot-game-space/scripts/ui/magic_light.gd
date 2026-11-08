@@ -3,7 +3,7 @@ extends Control
 ## "Cyber light": animated RGB light strip running around the screen border (like the LED lighting on gaming
 ## phones). Also used by the intro. Redraws at 30 Hz, 96 line segments: negligible cost.
 
-const THEMES := ["Cyan", "Magenta", "Rainbow", "Red alert", "Cyber duo"]
+const THEMES := ["Crimson", "Inferno", "Rainbow", "Red alert", "Red + Cyan"]
 
 var _acc := 0.0
 var _t := 0.0
@@ -26,7 +26,7 @@ func _draw() -> void:
 	var theme := Settings.light_theme
 	var strength := 0.55
 	if Telemetry.battery_temp_c >= PerformanceBooster.THERMAL_LIMIT_C:
-		theme = 3 # turns red when the phone runs hot
+		theme = 3 # pulses alarm-red when the phone runs hot
 		strength = 0.9
 	draw_border(self, size, _t, theme, strength, 4.0)
 
@@ -45,11 +45,11 @@ static func _perimeter(u: float, s: Vector2) -> Vector2:
 
 static func color_at(theme: int, h: float, t: float) -> Color:
 	match theme:
-		1: return Color.from_hsv(0.86 + 0.04 * sin(h * TAU), 0.85, 1.0)
+		1: return Color.from_hsv(0.02 + 0.07 * (0.5 + 0.5 * sin(h * TAU * 2.0)), 0.95, 1.0) # red -> orange fire
 		2: return Color.from_hsv(fmod(h, 1.0), 0.9, 1.0)
 		3: return Color.from_hsv(0.0 + 0.02 * sin(h * TAU * 2.0), 0.95, 0.6 + 0.4 * (0.5 + 0.5 * sin(t * 6.0)))
 		4: return Color(0.0, 0.95, 1.0) if fmod(h * 4.0, 2.0) < 1.0 else Color(1.0, 0.15, 0.25)
-	return Color.from_hsv(0.5 + 0.04 * sin(h * TAU), 0.9, 1.0)
+	return Color.from_hsv(0.99 + 0.02 * sin(h * TAU), 0.92, 1.0) # crimson
 
 static func draw_border(c: CanvasItem, s: Vector2, t: float, theme: int, strength := 0.6, thickness := 4.0) -> void:
 	var n := 96

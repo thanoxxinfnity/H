@@ -1,5 +1,5 @@
 extends Node
-## Smoke test: boots the real main scene, takes screenshots of the intro, the game and the opened drawer.
+## Smoke test: boots the real main scene and screenshots intro, home library, add-game picker, arena and the drawer.
 ## Run: xvfb-run godot --path . res://tests/smoke.tscn -- /output/dir
 
 var out := "/tmp"
@@ -8,15 +8,21 @@ func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	if args.size() > 0:
 		out = args[0]
+	Settings.games = [{"package": "com.example.racer", "label": "Sample Racer"}, {"package": "com.example.shooter", "label": "Sample Shooter"}]
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	add_child(main)
-	await get_tree().create_timer(1.4).timeout
+	await get_tree().create_timer(1.5).timeout
 	_shot("1_intro")
 	await get_tree().create_timer(3.4).timeout
-	_shot("2_intro_late")
-	await get_tree().create_timer(2.0).timeout
-	_shot("3_game")
-	# swipe in from the upper-left border
+	_shot("2_home")
+	var lib: GameLibrary = main.get_node("UiLayer/GameLibrary")
+	lib.call("_open_picker")
+	await get_tree().create_timer(0.5).timeout
+	_shot("3_picker")
+	lib._picker.visible = false
+	lib.play_game.emit(GameLibrary.ARENA)
+	await get_tree().create_timer(6.5).timeout
+	_shot("4_arena")
 	var t := InputEventScreenTouch.new()
 	t.index = 0
 	t.pressed = true
@@ -35,27 +41,11 @@ func _ready() -> void:
 	u.position = Vector2(130, 100)
 	Input.parse_input_event(u)
 	await get_tree().create_timer(1.2).timeout
-	_shot("4_drawer")
-	Settings.triggers_on = true
-	Settings.light_theme = 4
-	var sc := _find_scroll(main.get_node("UiLayer/Sidebar"))
-	for k in 3:
-		sc.scroll_vertical = 520 * (k + 1)
-		await get_tree().create_timer(0.5).timeout
-		_shot("5_scroll_%d" % k)
-	print("SMOKE_DONE sidebar_open=", main.get_node("UiLayer/Sidebar").is_open())
+	_shot("5_drawer")
+	print("SMOKE_DONE sidebar_open=", main.get_node("UiLayer/Sidebar").is_open(), " library_visible=", lib.visible)
 	get_tree().quit()
 
-func _shot(name: String) -> void:
+func _shot(shot_name: String) -> void:
 	var img := get_viewport().get_texture().get_image()
-	img.save_png("%s/%s.png" % [out, name])
-	print("shot ", name, " ", img.get_size())
-
-func _find_scroll(n: Node) -> ScrollContainer:
-	if n is ScrollContainer:
-		return n
-	for c in n.get_children():
-		var r := _find_scroll(c)
-		if r != null:
-			return r
-	return null
+	img.save_png("%s/%s.png" % [out, shot_name])
+	print("shot ", shot_name, " ", img.get_size())

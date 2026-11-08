@@ -6,6 +6,7 @@ config_version=5
 config/name="Game Space Booster"
 config/description="Mobile game booster: cinematic entry, edge-swipe Game Space HUD, CAS upscaler, AI video client"
 run/main_scene="res://scenes/main.tscn"
+config/icon="res://assets/drawables/app_icon.svg"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 run/max_fps=60
 
@@ -13,6 +14,7 @@ run/max_fps=60
 
 Settings="*res://autoload/settings.gd"
 Telemetry="*res://autoload/telemetry.gd"
+AndroidBridge="*res://autoload/android_bridge.gd"
 PerformanceBooster="*res://autoload/performance_booster.gd"
 
 [display]

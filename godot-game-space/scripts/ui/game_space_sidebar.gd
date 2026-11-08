@@ -5,10 +5,11 @@ extends Control
 ## ever pauses the SceneTree.
 
 signal replay_intro
+signal go_home
 
 const EDGE_PX := 40.0 # width of the touch zone along each border
 const OPEN_DX := 70.0 # inward travel needed to open
-const NEON := Color(0.0, 0.95, 1.0)
+const NEON := Color(1.0, 0.12, 0.24) # red accent (name kept)
 
 var upscaler: UpscalerManager
 var generator: AIVideoGenerator
@@ -72,6 +73,7 @@ func setup(p_upscaler: UpscalerManager, p_generator: AIVideoGenerator, p_recorde
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	theme = GTTheme.build()
 	add_to_group("cleanable")
 
 	_dim.color = Color(0, 0, 0, 0)
@@ -293,7 +295,7 @@ func _build(box: VBoxContainer) -> void:
 	box.add_child(modes)
 	box.add_child(_action_button("Clean RAM", "sweep", _on_clean))
 	_clean_label.add_theme_font_size_override("font_size", 12)
-	_clean_label.modulate = Color(0.6, 1.0, 0.4)
+	_clean_label.modulate = Color(1.0, 0.8, 0.3)
 	box.add_child(_clean_label)
 	box.add_child(_toggle_button("Thermal guard (auto-cool above 43 °C)", "thermo", Settings.thermal_guard, func(on: bool) -> void:
 		Settings.thermal_guard = on
@@ -344,6 +346,9 @@ func _build(box: VBoxContainer) -> void:
 	box.add_child(map_row)
 
 	# Tools
+	box.add_child(_action_button("Game Space home", "layers", func() -> void:
+		toggle(false)
+		go_home.emit()))
 	box.add_child(_section("Game Tools"))
 	_rec_btn = _toggle_button("Screen Record", "record", false, _on_record)
 	box.add_child(_rec_btn)
@@ -351,7 +356,8 @@ func _build(box: VBoxContainer) -> void:
 	_dnd_btn = _toggle_button("Do Not Disturb", "bell_off", Settings.do_not_disturb, func(on: bool) -> void:
 		Settings.do_not_disturb = on
 		Settings.save_settings()
-		PerformanceBooster.call_plugin("setDnd", [on]))
+		if not PerformanceBooster.set_dnd(on) and AndroidBridge.available:
+			_clean_label.text = "Grant Do Not Disturb access in the screen that just opened, then toggle again.")
 	box.add_child(_dnd_btn)
 	_bright_btn = _toggle_button("Brightness Lock", "sun", Settings.brightness_lock, func(on: bool) -> void:
 		Settings.brightness_lock = on
@@ -547,6 +553,6 @@ class Sparkline extends Control:
 		var pts := PackedVector2Array()
 		for i in h.size():
 			pts.append(Vector2(size.x * i / 59.0, size.y - clampf(h[i] / top, 0.0, 1.0) * size.y))
-		draw_polyline(pts, Color(0.0, 0.95, 1.0), 2.0, true)
+		draw_polyline(pts, Color(1.0, 0.25, 0.3), 2.0, true)
 		var y60 := size.y - 60.0 / top * size.y
 		draw_line(Vector2(0, y60), Vector2(size.x, y60), Color(1, 1, 1, 0.18), 1.0)

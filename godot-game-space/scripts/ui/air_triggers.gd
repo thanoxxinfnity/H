@@ -53,7 +53,7 @@ func _layout() -> void:
 
 func _draw_pad(pad: Control, idx: int) -> void:
 	var c := pad.size * 0.5
-	var col := Color(0.0, 0.95, 1.0) if idx == 0 else Color(1.0, 0.17, 0.84)
+	var col := Color(1.0, 0.12, 0.24) if idx == 0 else Color(1.0, 0.42, 0.1)
 	var down: bool = _held[idx]
 	pad.draw_circle(c, 44.0, Color(col, 0.35 if down else 0.12))
 	pad.draw_arc(c, 44.0, 0.0, TAU, 48, Color(col, 0.9 if down else 0.55), 3.0, true)

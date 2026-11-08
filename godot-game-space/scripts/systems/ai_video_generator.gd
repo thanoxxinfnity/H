@@ -83,9 +83,14 @@ func clear_cache() -> int:
 ## the format cannot be decoded on this build (caller should use its procedural fallback).
 ## opts for spritesheets: hframes, vframes, fps.
 static func play_into(host: Control, path: String, loop := true, opts := {}) -> Node:
-	if path == "" or not FileAccess.file_exists(path):
+	if path == "":
 		return null
 	var ext := path.get_extension().to_lower()
+	if ext == "ogv" and path.begins_with("res://"):
+		var packed := load(path) as VideoStream # bundled clip: the importer turned it into a VideoStreamTheora
+		return _make_player(host, packed, loop) if packed != null else null
+	if not FileAccess.file_exists(path):
+		return null
 	if ext == "ogv":
 		var theora := VideoStreamTheora.new()
 		theora.file = path

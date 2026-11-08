@@ -39,25 +39,32 @@ func apply_mode(mode: int) -> void:
 	active = mode >= 2
 	OS.low_processor_usage_mode = false
 	DisplayServer.screen_set_keep_on(mode >= 1)
+	AndroidBridge.set_sustained_performance(mode >= 2)
 	call_plugin("setSustainedPerformance", [mode >= 2])
 	Settings.save_settings()
 	boost_changed.emit(active)
 
 ## Frees what this game can free (anything in the "cleanable" group gets clean_up()) and asks the
 ## Android plugin to trim memory. Returns {freed_mb, available_mb}.
-func clean_memory() -> Dictionary:
+func clean_memory(except_pkg := "") -> Dictionary:
 	var before := Telemetry.free_ram_mb()
+	var killed := AndroidBridge.kill_background(except_pkg)
 	get_tree().call_group("cleanable", "clean_up")
 	call_plugin("trimMemory")
-	await get_tree().create_timer(0.4).timeout
+	await get_tree().create_timer(0.8).timeout
 	var after := Telemetry.free_ram_mb()
-	return {"freed_mb": maxf(0.0, after - before) if before >= 0.0 and after >= 0.0 else -1.0, "available_mb": after}
+	return {"freed_mb": maxf(0.0, after - before) if before >= 0.0 and after >= 0.0 else -1.0, "available_mb": after, "killed": killed}
 
 ## Thermal guard: if the battery gets too hot in Performance/X-Boost, drop back to Balanced.
 func _thermal_check() -> void:
 	if Settings.thermal_guard and Settings.performance_mode >= 2 and Telemetry.battery_temp_c >= THERMAL_LIMIT_C:
 		apply_mode(1)
 		thermal_throttled.emit(Telemetry.battery_temp_c)
+
+func set_dnd(on: bool) -> bool:
+	Settings.do_not_disturb = on
+	Settings.save_settings()
+	return AndroidBridge.set_dnd(on) or call_plugin("setDnd", [on])
 
 func set_bypass_charging(on: bool) -> bool:
 	Settings.bypass_charging = on

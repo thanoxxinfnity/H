@@ -3,8 +3,8 @@ shader_type canvas_item;
 // Needs the screen texture, so only show it while the drawer is open.
 
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
-uniform vec4 tint : source_color = vec4(0.04, 0.08, 0.16, 0.62);
-uniform vec4 rim : source_color = vec4(0.0, 0.9, 1.0, 1.0);
+uniform vec4 tint : source_color = vec4(0.10, 0.02, 0.04, 0.70);
+uniform vec4 rim : source_color = vec4(1.0, 0.12, 0.24, 1.0);
 uniform float blur : hint_range(0.0, 8.0) = 3.0;
 uniform float radius = 28.0;
 uniform vec2 rect_size = vec2(360.0, 600.0);

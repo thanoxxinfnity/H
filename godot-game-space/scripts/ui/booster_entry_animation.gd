@@ -9,9 +9,9 @@ extends Control
 signal finished
 
 const LENGTH := 4.2
-const NEON := Color(0.0, 0.95, 1.0)
-const PINK := Color(1.0, 0.17, 0.84)
-const LIME := Color(0.6, 1.0, 0.3)
+const NEON := Color(1.0, 0.12, 0.24) # red (name kept)
+const PINK := Color(1.0, 0.42, 0.1) # orange
+const LIME := Color(1.0, 0.8, 0.2)
 
 # Animated by the AnimationPlayer (setters redraw).
 var scan := 0.0: set = _set_scan
@@ -31,6 +31,7 @@ var _cpu_target := 0.92
 var _gpu_target := 0.88
 var _freed_text := ""
 var _clock := 0.0
+var target_name := "" # game being launched, shown under the title
 
 func _set_scan(v: float) -> void: scan = v; queue_redraw()
 func _set_flash(v: float) -> void: flash = v; queue_redraw()
@@ -58,12 +59,9 @@ func play(media_path := "") -> void:
 		_bg_media = null
 	if media_path != "":
 		_bg_media = AIVideoGenerator.play_into(self, media_path, true)
-		if _bg_media is Control:
-			move_child(_bg_media, 0)
-		elif _bg_media is Node2D:
-			move_child(_bg_media, 0)
+		if _bg_media is CanvasItem:
+			(_bg_media as CanvasItem).show_behind_parent = true # clip behind the HUD that _draw() paints
 	Engine.max_fps = 60 # lock the intro to 60 FPS
-	var mem_before := Telemetry.free_ram_mb()
 	_cpu_target = clampf(maxf(Telemetry.cpu_load, 0.0) * 0.35 + 0.62, 0.7, 0.98)
 	_gpu_target = clampf(_cpu_target - 0.05 + randf() * 0.06, 0.7, 0.97)
 	cpu = 0.0
@@ -82,9 +80,6 @@ func play(media_path := "") -> void:
 	s.tween_callback(_set_status.bind("CPU / GPU RAMP-UP")).set_delay(0.7)
 	s.tween_callback(_set_status.bind("SWEEPING MEMORY")).set_delay(0.9)
 	s.tween_callback(func() -> void:
-		var after := Telemetry.free_ram_mb()
-		if mem_before >= 0.0 and after >= 0.0 and after > mem_before:
-			_freed_text = "+%d MB FREE" % int(after - mem_before)
 		_set_status("IGNITION")
 		_particles.restart()
 		_ember.emitting = true).set_delay(1.0)
@@ -94,6 +89,16 @@ func _process(dt: float) -> void:
 	if _playing:
 		_clock += dt
 		queue_redraw()
+
+## Real result of the RAM clean that runs while the intro plays.
+func set_result(r: Dictionary) -> void:
+	var freed: float = r.get("freed_mb", -1.0)
+	var killed: int = r.get("killed", 0)
+	if freed > 0.5:
+		_freed_text = "+%d MB FREE" % int(freed)
+	elif killed > 0:
+		_freed_text = "%d BACKGROUND APPS CLOSED" % killed
+	queue_redraw()
 
 func _set_status(text: String) -> void:
 	_status = text
@@ -189,13 +194,14 @@ func _draw() -> void:
 	var s := size
 	var safe := SafeAreaContainer.safe_rect(self)
 	if _bg_media == null:
-		draw_rect(Rect2(Vector2.ZERO, s), Color(0.015, 0.02, 0.05))
+		draw_rect(Rect2(Vector2.ZERO, s), Color(0.03, 0.01, 0.02))
+		draw_texture_rect(Drawables.texture("hex_bg", maxf(1.0, s.x / 640.0)), Rect2(Vector2.ZERO, s), false)
 		_draw_grid(s)
 	else:
 		draw_rect(Rect2(Vector2.ZERO, s), Color(0, 0, 0, 0.35))
 	_draw_turbine(safe)
 	_draw_armor(s)
-	MagicLight.draw_border(self, s, _clock, 4, 0.35 + 0.6 * clampf(cpu, 0.0, 1.0), 6.0)
+	MagicLight.draw_border(self, s, _clock, 0, 0.35 + 0.6 * clampf(cpu, 0.0, 1.0), 6.0)
 	# scan line + trailing glow
 	var y := s.y * scan
 	if scan > 0.0 and scan < 1.0:
@@ -216,6 +222,10 @@ func _draw() -> void:
 	var ss := int(clampf(safe.size.y * 0.04, 13.0, 24.0))
 	var sw := font.get_string_size(_status, HORIZONTAL_ALIGNMENT_LEFT, -1, ss).x
 	draw_string(font, Vector2(center.x - sw * 0.5, center.y - r * 0.55 + ss * 2.0), _status, HORIZONTAL_ALIGNMENT_LEFT, -1, ss, NEON)
+	if target_name != "":
+		var nl := "LAUNCHING: " + target_name.to_upper()
+		var nw := font.get_string_size(nl, HORIZONTAL_ALIGNMENT_LEFT, -1, ss).x
+		draw_string(font, Vector2(center.x - nw * 0.5, center.y - r * 0.55 + ss * 3.6), nl, HORIZONTAL_ALIGNMENT_LEFT, -1, ss, Color(1, 1, 1, 0.9))
 	if _freed_text != "":
 		var fw := font.get_string_size(_freed_text, HORIZONTAL_ALIGNMENT_LEFT, -1, ss).x
 		draw_string(font, Vector2(center.x - fw * 0.5, center.y + r * 0.2 + 16 + ss * 2.0), _freed_text, HORIZONTAL_ALIGNMENT_LEFT, -1, ss, LIME)
@@ -227,17 +237,17 @@ func _draw_grid(s: Vector2) -> void:
 	var step := 48.0
 	var x := fmod(Time.get_ticks_msec() * 0.02, step)
 	while x < s.x:
-		draw_line(Vector2(x, 0), Vector2(x, s.y), Color(0.1, 0.35, 0.5, 0.18), 1.0)
+		draw_line(Vector2(x, 0), Vector2(x, s.y), Color(0.6, 0.1, 0.15, 0.16), 1.0)
 		x += step
 	var yy := 0.0
 	while yy < s.y:
-		draw_line(Vector2(0, yy), Vector2(s.x, yy), Color(0.1, 0.35, 0.5, 0.18), 1.0)
+		draw_line(Vector2(0, yy), Vector2(s.x, yy), Color(0.6, 0.1, 0.15, 0.16), 1.0)
 		yy += step
 
 func _draw_dial(c: Vector2, r: float, value: float, label: String, col: Color) -> void:
 	var a0 := deg_to_rad(135.0)
 	var span := deg_to_rad(270.0)
-	draw_arc(c, r, a0, a0 + span, 64, Color(1, 1, 1, 0.12), 6.0, true)
+	draw_arc(c, r, a0, a0 + span, 64, Color(1, 1, 1, 0.10), 6.0, true)
 	for i in 28:
 		var t := i / 27.0
 		var ang := a0 + span * t
