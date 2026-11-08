@@ -1,9 +1,11 @@
 class_name GameLibrary
 extends Control
-## "Game Space" home: your games as boost-and-launch tiles + the built-in Arena benchmark.
-## Tap a tile -> booster intro + real RAM clean -> the game launches (on Android through the PackageManager).
+## "Game Space" home: auto-detected games as boost-and-launch tiles, per-game profiles, play time and a
+## report of your last session. Tap BOOST & PLAY -> intro + real RAM clean -> the game launches.
 
 signal play_game(entry: Dictionary)
+
+const MODE_NAMES := ["Eco · 30 FPS", "Balanced · 60 FPS", "Performance", "X-Boost"]
 
 var _grid := GridContainer.new()
 var _picker := Control.new()
@@ -14,9 +16,19 @@ var _apps: Array = []
 var _stats := Label.new()
 var _ring := TextureRect.new()
 var _spin := 0.0
-var _icon_queue: Array = []
 var _notice := Label.new()
+var _report := Label.new()
 var _empty := Label.new()
+var _icon_queue: Array = []
+# profile popup
+var _profile := Control.new()
+var _p_title := Label.new()
+var _p_mode := OptionButton.new()
+var _p_clean := Button.new()
+var _p_dnd := Button.new()
+var _p_bright_on := Button.new()
+var _p_bright := HSlider.new()
+var _p_pkg := ""
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -35,7 +47,7 @@ func _ready() -> void:
 	_ring.texture = Drawables.texture("hud_ring", 1.6)
 	_ring.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_ring.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_ring.modulate = Color(1, 1, 1, 0.55)
+	_ring.modulate = Color(1, 1, 1, 0.4)
 	_ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_ring)
@@ -51,7 +63,7 @@ func _ready() -> void:
 	safe.extra_margin = 18
 	add_child(safe)
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 14)
+	col.add_theme_constant_override("separation", 12)
 	safe.add_child(col)
 
 	var head := HBoxContainer.new()
@@ -67,7 +79,6 @@ func _ready() -> void:
 	var title := Label.new()
 	title.text = "GAME SPACE"
 	title.add_theme_font_size_override("font_size", 30)
-	title.add_theme_color_override("font_color", Pal.TEXT)
 	tv.add_child(title)
 	_stats.add_theme_font_size_override("font_size", 13)
 	_stats.add_theme_color_override("font_color", Pal.RED_HOT)
@@ -94,9 +105,11 @@ func _ready() -> void:
 	hint.add_theme_font_size_override("font_size", 11)
 	hint.modulate = Pal.MUTED
 	col.add_child(hint)
-
+	_report.add_theme_font_size_override("font_size", 13)
+	_report.add_theme_color_override("font_color", Pal.AMBER)
+	col.add_child(_report)
 	_notice.add_theme_font_size_override("font_size", 13)
-	_notice.add_theme_color_override("font_color", Pal.AMBER)
+	_notice.add_theme_color_override("font_color", Pal.OK)
 	col.add_child(_notice)
 	_empty.text = "NO GAMES FOUND YET\nInstall a game (Free Fire, BGMI, Minecraft…) and it appears here by itself."
 	_empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -115,11 +128,16 @@ func _ready() -> void:
 	scroll.add_child(_grid)
 
 	_build_picker()
+	_build_profile()
 	GameScanner.games_changed.connect(_on_games_changed)
+	GameSession.session_ended.connect(func(_r: Dictionary) -> void:
+		_update_report()
+		_refresh())
 	get_tree().root.size_changed.connect(_refresh)
 	Telemetry.updated.connect(_update_stats)
 	_refresh()
 	_update_stats()
+	_update_report()
 
 func _process(dt: float) -> void:
 	if visible:
@@ -132,56 +150,102 @@ func _update_stats() -> void:
 	var temp := "--" if Telemetry.battery_temp_c < 0.0 else "%.0f°C" % Telemetry.battery_temp_c
 	_stats.text = "RAM FREE %s   ·   BATTERY %s   ·   MODE %s" % ["--" if free < 0.0 else "%d MB" % int(free), temp, ["ECO", "BALANCED", "PERFORMANCE", "X-BOOST"][clampi(Settings.performance_mode, 0, 3)]]
 
+func _update_report() -> void:
+	var r: Dictionary = Settings.last_session
+	if r.is_empty():
+		_report.text = ""
+		return
+	var parts: Array = ["LAST SESSION: %s" % str(r.get("label", "")).to_upper(), GameSession.fmt_duration(float(r.get("seconds", 0.0)))]
+	if int(r.get("battery_drop", -1)) >= 0:
+		parts.append("BATTERY -%d%%" % int(r.battery_drop))
+	if float(r.get("temp_c", -1.0)) > 0.0:
+		parts.append("%.0f°C" % float(r.temp_c))
+	if float(r.get("freed_mb", 0.0)) > 0.5:
+		parts.append("%d MB FREED AT LAUNCH" % int(float(r.freed_mb)))
+	_report.text = "   ·   ".join(parts)
+
+# ---------------------------------------------------------------- tiles
+func _sorted_games() -> Array:
+	var g: Array = Settings.games.duplicate()
+	g.sort_custom(func(a, b) -> bool:
+		var la: float = GameSession.stats_for(str(a.package)).last
+		var lb: float = GameSession.stats_for(str(b.package)).last
+		if la != lb:
+			return la > lb
+		return str(a.label).naturalnocasecmp_to(str(b.label)) < 0)
+	return g
+
 func _refresh() -> void:
 	var w := get_viewport_rect().size.x
 	_grid.columns = maxi(2, int((w - 36.0) / 190.0))
 	for c in _grid.get_children():
 		c.queue_free()
-	for g in Settings.games:
-		_grid.add_child(_tile(g, false))
-	_empty.visible = Settings.games.is_empty()
 	_icon_queue.clear()
-	for t in _grid.get_children():
-		if t.has_meta("pkg") and str(t.get_meta("pkg")) != "":
-			_icon_queue.append(t)
+	for g in _sorted_games():
+		var t := _tile(g)
+		_grid.add_child(t)
+		_icon_queue.append(t)
+	_empty.visible = Settings.games.is_empty()
 	_load_icons()
 
-func _tile(entry: Dictionary, builtin: bool) -> Control:
+func _tile(entry: Dictionary) -> Control:
+	var pkg := str(entry.get("package", ""))
 	var tile := PanelContainer.new()
-	tile.custom_minimum_size = Vector2(176, 222)
+	tile.custom_minimum_size = Vector2(176, 236)
 	tile.add_theme_stylebox_override("panel", Drawables.box("tile_frame", 22, 1.0, 10))
-	tile.set_meta("pkg", str(entry.get("package", "")))
+	tile.set_meta("pkg", pkg)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
+	v.add_theme_constant_override("separation", 6)
 	tile.add_child(v)
 	var top := HBoxContainer.new()
 	top.custom_minimum_size = Vector2(0, 26)
+	var gear := Button.new()
+	gear.icon = Icons.get_icon("cpu", 22, Pal.AMBER)
+	gear.flat = true
+	gear.custom_minimum_size = Vector2(28, 26)
+	gear.pressed.connect(func() -> void: _open_profile(entry))
+	top.add_child(gear)
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(spacer)
-	if not builtin:
-		var rm := Button.new()
-		rm.icon = Icons.get_icon("close", 22, Pal.MUTED)
-		rm.flat = true
-		rm.custom_minimum_size = Vector2(28, 26)
-		rm.pressed.connect(func() -> void: _remove(entry))
-		top.add_child(rm)
+	var rm := Button.new()
+	rm.icon = Icons.get_icon("close", 22, Pal.MUTED)
+	rm.flat = true
+	rm.custom_minimum_size = Vector2(28, 26)
+	rm.pressed.connect(func() -> void: _remove(entry))
+	top.add_child(rm)
 	v.add_child(top)
+	# icon holder: letter badge underneath, the game's real icon on top once it is available
+	var holder := Control.new()
+	holder.name = "Holder"
+	holder.custom_minimum_size = Vector2(84, 84)
+	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var badge := Badge.new()
+	badge.setup(str(entry.get("label", "?")), pkg)
+	badge.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	holder.add_child(badge)
 	var icon := TextureRect.new()
 	icon.name = "Icon"
-	icon.texture = Drawables.texture("emblem", 1.0)
-	icon.custom_minimum_size = Vector2(84, 84)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(icon)
+	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	icon.visible = false
+	holder.add_child(icon)
+	v.add_child(holder)
 	var name_label := Label.new()
 	name_label.text = str(entry.get("label", "Game")).to_upper()
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	name_label.custom_minimum_size = Vector2(0, 38)
+	name_label.custom_minimum_size = Vector2(0, 36)
 	name_label.add_theme_font_size_override("font_size", 14)
 	v.add_child(name_label)
+	var st := GameSession.stats_for(pkg)
+	var played := Label.new()
+	played.text = "NEW" if int(st.launches) == 0 else "%s  ·  %d LAUNCH%s" % [GameSession.fmt_duration(float(st.seconds)), int(st.launches), "" if int(st.launches) == 1 else "ES"]
+	played.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	played.add_theme_font_size_override("font_size", 10)
+	played.modulate = Pal.MUTED
+	v.add_child(played)
 	var play := Button.new()
 	play.text = "BOOST & PLAY"
 	play.custom_minimum_size = Vector2(0, 44)
@@ -190,16 +254,32 @@ func _tile(entry: Dictionary, builtin: bool) -> Control:
 	v.add_child(play)
 	return tile
 
+func _icon_path(pkg: String) -> String:
+	return "user://icons/%s.png" % pkg
+
 func _load_icons() -> void:
-	if not AndroidBridge.available:
-		return
 	for t in _icon_queue:
 		if not is_instance_valid(t):
 			continue
-		await get_tree().process_frame
-		var tex := AndroidBridge.app_icon(str(t.get_meta("pkg")))
+		var pkg := str(t.get_meta("pkg"))
+		var tex: Texture2D = null
+		var path := _icon_path(pkg)
+		if FileAccess.file_exists(path): # cached from an earlier visit: instant
+			var img := Image.load_from_file(path)
+			if img != null and not img.is_empty():
+				tex = ImageTexture.create_from_image(img)
+		if tex == null and AndroidBridge.available:
+			await get_tree().process_frame
+			if not is_instance_valid(t):
+				continue
+			tex = AndroidBridge.app_icon(pkg, 128)
+			if tex != null:
+				DirAccess.make_dir_recursive_absolute("user://icons")
+				tex.get_image().save_png(path)
 		if tex != null and is_instance_valid(t):
-			t.get_node("VBoxContainer/Icon").texture = tex
+			var icon: TextureRect = t.get_node("VBoxContainer/Holder/Icon")
+			icon.texture = tex
+			icon.visible = true
 
 func _remove(entry: Dictionary) -> void:
 	GameScanner.forget(str(entry.package))
@@ -214,7 +294,85 @@ func _on_games_changed(added: Array, removed: Array) -> void:
 	_notice.text = "   ·   ".join(parts)
 	_refresh()
 
-# ---------------------------------------------------------------- add-game picker
+# ---------------------------------------------------------------- per-game profile
+func _build_profile() -> void:
+	_profile.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_profile.visible = false
+	add_child(_profile)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.7)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_profile.add_child(dim)
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", Drawables.box("panel_chamfer", 24, 1.0, 20))
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	panel.custom_minimum_size = Vector2(520, 0)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_profile.add_child(panel)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	panel.add_child(v)
+	_p_title.add_theme_font_size_override("font_size", 22)
+	v.add_child(_p_title)
+	var sub := Label.new()
+	sub.text = "GAME PROFILE  ·  applied when you BOOST & PLAY"
+	sub.add_theme_font_size_override("font_size", 11)
+	sub.modulate = Pal.MUTED
+	v.add_child(sub)
+	for i in MODE_NAMES.size():
+		_p_mode.add_item(MODE_NAMES[i], i)
+	_p_mode.custom_minimum_size = Vector2(0, 48)
+	v.add_child(_p_mode)
+	for b in [_p_clean, _p_dnd, _p_bright_on]:
+		b.toggle_mode = true
+		b.custom_minimum_size = Vector2(0, 48)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		v.add_child(b)
+	_p_clean.text = " Close background apps (free RAM)"
+	_p_dnd.text = " Do Not Disturb while playing"
+	_p_bright_on.text = " Set screen brightness while playing"
+	_p_bright_on.toggled.connect(func(on: bool) -> void:
+		_p_bright.editable = on
+		if on and AndroidBridge.available and not AndroidBridge.can_write_settings():
+			AndroidBridge.request_write_settings())
+	_p_bright.min_value = 0.1
+	_p_bright.max_value = 1.0
+	_p_bright.step = 0.01
+	_p_bright.custom_minimum_size = Vector2(0, 32)
+	v.add_child(_p_bright)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var cancel := Button.new()
+	cancel.text = "CANCEL"
+	cancel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cancel.pressed.connect(func() -> void: _profile.visible = false)
+	row.add_child(cancel)
+	var save := Button.new()
+	save.text = "SAVE"
+	save.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	save.pressed.connect(_save_profile)
+	row.add_child(save)
+	v.add_child(row)
+
+func _open_profile(entry: Dictionary) -> void:
+	_p_pkg = str(entry.package)
+	var p := GameSession.profile_for(_p_pkg)
+	_p_title.text = str(entry.label).to_upper()
+	_p_mode.select(int(p.mode))
+	_p_clean.button_pressed = bool(p.clean)
+	_p_dnd.button_pressed = bool(p.dnd)
+	_p_bright_on.set_pressed_no_signal(float(p.bright) >= 0.0)
+	_p_bright.value = float(p.bright) if float(p.bright) >= 0.0 else 0.8
+	_p_bright.editable = float(p.bright) >= 0.0
+	_profile.visible = true
+
+func _save_profile() -> void:
+	Settings.profiles[_p_pkg] = {"mode": _p_mode.selected, "clean": _p_clean.button_pressed, "dnd": _p_dnd.button_pressed, "bright": _p_bright.value if _p_bright_on.button_pressed else -1.0}
+	Settings.save_settings()
+	_profile.visible = false
+
+# ---------------------------------------------------------------- manual add picker
 func _build_picker() -> void:
 	_picker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_picker.visible = false
@@ -279,9 +437,7 @@ func _open_picker() -> void:
 	if AndroidBridge.available:
 		_apps = AndroidBridge.list_launchable_apps()
 	else:
-		_apps = [ # desktop preview only: no installed-app list exists off Android
-			{"package": "com.example.app", "label": "Sample App (desktop preview)"},
-		]
+		_apps = [{"package": "com.example.app", "label": "Sample App (desktop preview)"}]
 	_fill_list()
 
 func _fill_list() -> void:
@@ -296,6 +452,7 @@ func _on_pick(i: int) -> void:
 	_add(_list.get_item_metadata(i))
 
 func _add(entry: Dictionary) -> void:
+	Settings.ignored.erase(entry.package)
 	for g in Settings.games:
 		if g.package == entry.package:
 			_picker.visible = false
@@ -304,3 +461,24 @@ func _add(entry: Dictionary) -> void:
 	Settings.save_settings()
 	_picker.visible = false
 	_refresh()
+
+## Placeholder icon (coloured rounded plate + initial) shown until the game's own icon is loaded from Android.
+class Badge extends Control:
+	var _letter := "?"
+	var _col := Pal.RED
+
+	func setup(label: String, pkg: String) -> void:
+		_letter = label.substr(0, 1).to_upper()
+		var palette := [Pal.RED, Pal.ORANGE, Color("d81b60"), Color("ff3d00"), Color("c2185b"), Color("e53935")]
+		_col = palette[abs(pkg.hash()) % palette.size()]
+
+	func _draw() -> void:
+		var s := size
+		var cut := s.x * 0.22
+		var pts := PackedVector2Array([Vector2(cut, 0), Vector2(s.x, 0), Vector2(s.x, s.y - cut), Vector2(s.x - cut, s.y), Vector2(0, s.y), Vector2(0, cut)])
+		draw_colored_polygon(pts, Color(_col, 0.22))
+		draw_polyline(PackedVector2Array([pts[0], pts[1], pts[2], pts[3], pts[4], pts[5], pts[0]]), _col, 3.0)
+		var f := ThemeDB.fallback_font
+		var fs := int(s.y * 0.55)
+		var w := f.get_string_size(_letter, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		draw_string(f, Vector2((s.x - w) * 0.5, s.y * 0.7), _letter, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Pal.TEXT)

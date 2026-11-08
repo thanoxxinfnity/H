@@ -153,3 +153,31 @@ func set_sustained_performance(on: bool) -> void:
 			win.setSustainedPerformanceMode(on)
 	var runnable = _rt.createRunnableFromGodotCallable(task)
 	_activity.runOnUiThread(runnable)
+
+# ---- brightness (Settings.System needs the user to grant "Modify system settings" once)
+func can_write_settings() -> bool:
+	if not available:
+		return false
+	return bool(_wrap("android.provider.Settings$System").canWrite(_activity))
+
+func request_write_settings() -> void:
+	if not available:
+		return
+	var intent = _wrap("android.content.Intent").Intent("android.settings.action.MANAGE_WRITE_SETTINGS")
+	var uri = _wrap("android.net.Uri").parse("package:" + str(_activity.getPackageName()))
+	intent.setData(uri)
+	_activity.startActivity(intent)
+
+## 0..255, or -1 when unreadable.
+func get_brightness() -> int:
+	if not available:
+		return -1
+	return int(_wrap("android.provider.Settings$System").getInt(_activity.getContentResolver(), "screen_brightness", -1))
+
+func set_brightness(value_0_255: int) -> bool:
+	if not available or not can_write_settings():
+		return false
+	var sys := _wrap("android.provider.Settings$System")
+	var cr = _activity.getContentResolver()
+	sys.putInt(cr, "screen_brightness_mode", 0) # manual: stops auto-brightness from changing it
+	return bool(sys.putInt(cr, "screen_brightness", clampi(value_0_255, 1, 255)))

@@ -106,3 +106,12 @@ Android's own game category/flag, a list of well-known packages (Free Fire / MAX
 and name keywords. New game -> tile appears; uninstalled -> tile disappears; a tile you remove with x stays removed.
 The in-app demo "arena" and the upscaler/air-trigger/recorder code were moved to `scripts/optional/` (they only make sense for a game
 rendered by Godot itself, not for other apps) and are no longer wired in.
+
+## 7. Game logos, profiles, sessions
+* Tiles show each game's own launcher icon, read from the installed app through the PackageManager and cached in `user://icons/`
+  (so they appear instantly next time). Until it is loaded (or on desktop) a coloured letter plate is shown. Trademarked game logos are
+  not bundled; the icon always comes from the app on the phone.
+* Gear on a tile = per-game profile: GT Mode, close background apps, Do Not Disturb, brightness while playing (needs the one-time
+  "Modify system settings" permission; the app opens that screen). Settings are restored when you return to Game Space.
+* `autoload/game_session.gd` measures play time (time until Game Space regains focus), battery drop and temperature, and shows
+  "LAST SESSION" on the home. Tiles are sorted by last played and show play time + launch count.

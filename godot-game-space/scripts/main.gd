@@ -36,15 +36,22 @@ func _on_intro_done() -> void:
 
 ## Boost and play: the intro runs while Android really closes background apps, then the game launches.
 func _on_play(entry: Dictionary) -> void:
+	var pkg := str(entry.get("package", ""))
+	var prof := GameSession.profile_for(pkg)
 	_play_intro(str(entry.get("label", "")))
-	var report: Dictionary = await PerformanceBooster.clean_memory(str(entry.get("package", "")))
+	var report := {}
+	if prof.clean:
+		report = await PerformanceBooster.clean_memory(pkg)
 	intro.set_result(report)
 	await intro.finished
+	entry = entry.duplicate()
+	entry["freed_mb"] = report.get("freed_mb", 0.0)
+	GameSession.begin(entry)
 	if AndroidBridge.available:
-		if not AndroidBridge.launch_package(str(entry.package)):
+		if not AndroidBridge.launch_package(pkg):
 			_show_toast("Could not launch %s" % entry.label)
 	else:
-		_show_toast("Desktop preview: would launch %s" % entry.package)
+		_show_toast("Desktop preview: would launch %s" % pkg)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and sidebar.is_open():

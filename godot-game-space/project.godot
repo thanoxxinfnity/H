@@ -16,6 +16,7 @@ Settings="*res://autoload/settings.gd"
 Telemetry="*res://autoload/telemetry.gd"
 AndroidBridge="*res://autoload/android_bridge.gd"
 GameScanner="*res://autoload/game_scanner.gd"
+GameSession="*res://autoload/game_session.gd"
 PerformanceBooster="*res://autoload/performance_booster.gd"
 
 [display]

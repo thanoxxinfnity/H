@@ -21,6 +21,16 @@ func _ready() -> void:
 	await get_tree().create_timer(0.5).timeout
 	_shot("3_picker")
 	lib._picker.visible = false
+	Settings.stats["com.dts.freefiremax"] = {"launches": 7, "seconds": 8100.0, "last": Time.get_unix_time_from_system() - 3600.0}
+	Settings.last_session = {"label": "Free Fire MAX", "seconds": 2520.0, "battery_drop": 9, "temp_c": 41.0, "freed_mb": 312.0}
+	lib._refresh()
+	lib._update_report()
+	await get_tree().create_timer(0.5).timeout
+	_shot("2b_home_stats")
+	lib._open_profile(Settings.games[0])
+	await get_tree().create_timer(0.4).timeout
+	_shot("2c_profile")
+	lib._profile.visible = false
 	lib.play_game.emit(Settings.games[0])
 	await get_tree().create_timer(3.0).timeout
 	_shot("3b_launch_intro")
